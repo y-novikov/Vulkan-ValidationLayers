@@ -246,6 +246,11 @@ class ValidationStateTracker : public ValidationObject {
     VALSTATETRACK_MAP_AND_TRAITS(VkAccelerationStructureNV, ACCELERATION_STRUCTURE_STATE, accelerationStructureMap)
     VALSTATETRACK_MAP_AND_TRAITS_INSTANCE_SCOPE(VkSurfaceKHR, SURFACE_STATE, surface_map)
 
+    // uint64_t is handle. It accesses only devicememory and swapchain.
+    void AddAliasingImage(IMAGE_STATE& image_state);
+    void RemoveAliasingImage(IMAGE_STATE& image_state);
+    void RemoveAliasingImages(std::unordered_set<uint64_t>& bound_images);
+
    public:
     template <typename State>
     typename AccessorTraits<State>::ReturnType Get(typename AccessorTraits<State>::Handle handle) {
@@ -1167,7 +1172,6 @@ class CoreChecks : public ValidationStateTracker {
 
     bool PreCallValidateCreateBuffer(VkDevice device, const VkBufferCreateInfo* pCreateInfo,
                                      const VkAllocationCallbacks* pAllocator, VkBuffer* pBuffer);
-
 
     bool PreCallValidateCreateBufferView(VkDevice device, const VkBufferViewCreateInfo* pCreateInfo,
                                          const VkAllocationCallbacks* pAllocator, VkBufferView* pView);
