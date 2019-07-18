@@ -101,6 +101,69 @@ IMAGE_STATE::IMAGE_STATE(VkImage img, const VkImageCreateInfo *pCreateInfo)
 #endif  // VK_USE_PLATFORM_ANDROID_KHR
 }
 
+bool IMAGE_STATE::IsMultiplanarCompatibleWithSingleplaneAliasing(IMAGE_STATE &other_image_state) {
+    const VkImageCreateInfo &other_createInfo = other_image_state.createInfo;
+    IMAGE_STATE *multi_planar = nullptr;
+    IMAGE_STATE *single_plane = nullptr;
+    // It needs one multi-planar and one single-plane.
+    if (FormatIsMultiplane(createInfo.format)) {
+        multi_planar = this;
+        single_plane = &other_image_state;
+    }
+    if (FormatIsMultiplane(other_createInfo.format)) {
+        // Both are multi-planar. Fail.
+        if (multi_planar) return false;
+        multi_planar = &other_image_state;
+        single_plane = this;
+    }
+
+    // Both are single-plane. Fail.
+    if (!multi_planar) return false;
+
+    // Confirm they bind the same memory.
+    if ((binding.mem != other_image_state.binding.mem) || (binding.mem == VK_NULL_HANDLE) ||
+        (binding.mem == MEMTRACKER_SWAP_CHAIN_IMAGE_KEY) || (binding.offset != other_image_state.binding.offset))
+        return false;
+
+    if (!(multi_planar->createInfo.flags & single_plane->createInfo.flags &
+          (VK_IMAGE_CREATE_ALIAS_BIT | VK_IMAGE_CREATE_DISJOINT_BIT)))
+        return false;
+
+    if ((single_plane->createInfo.format == VK_FORMAT_UNDEFINED) ||
+        (FindMultiplaneCompatibleFormat(multi_planar->createInfo.format, VK_IMAGE_ASPECT_PLANE_1_BIT) !=
+         single_plane->createInfo.format)) {
+        return false;
+    }
+
+    VkExtent2D extent = FindMultiplaneExtentDivisors(multi_planar->createInfo.format, VK_IMAGE_ASPECT_PLANE_1_BIT);
+    if ((multi_planar->createInfo.extent.width != (single_plane->createInfo.extent.width * extent.width)) ||
+        (multi_planar->createInfo.extent.height != (single_plane->createInfo.extent.height * extent.height))) {
+        return false;
+    }
+    if ((createInfo.tiling != other_createInfo.tiling) &&
+        (createInfo.tiling == VK_IMAGE_TILING_OPTIMAL || other_image_state.createInfo.tiling == VK_IMAGE_TILING_OPTIMAL)) {
+        return false;
+    }
+
+    if ((createInfo.sType == other_createInfo.sType) && (createInfo.imageType == other_createInfo.imageType) &&
+        (createInfo.mipLevels == other_createInfo.mipLevels) && (createInfo.arrayLayers == other_createInfo.arrayLayers) &&
+        (createInfo.samples == other_createInfo.samples) && (createInfo.usage == other_createInfo.usage) &&
+        (createInfo.sharingMode == other_createInfo.sharingMode) &&
+        (createInfo.queueFamilyIndexCount == other_createInfo.queueFamilyIndexCount) &&
+        (createInfo.initialLayout == other_createInfo.initialLayout) &&
+        (createInfo.extent.depth == other_createInfo.extent.depth)) {
+        if (createInfo.queueFamilyIndexCount > 0) {
+            for (uint32_t i = 0; i < createInfo.queueFamilyIndexCount; ++i) {
+                if (createInfo.pQueueFamilyIndices[i] != other_createInfo.pQueueFamilyIndices[i]) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    return false;
+}
+
 bool IMAGE_STATE::IsCreateInfoEqual(VkImageCreateInfo &other_createInfo) {
     if ((createInfo.sType == other_createInfo.sType) && (createInfo.flags == other_createInfo.flags) &&
         (createInfo.imageType == other_createInfo.imageType) && (createInfo.format == other_createInfo.format) &&
@@ -133,6 +196,11 @@ bool IMAGE_STATE::IsCompatibleAliasing(IMAGE_STATE &other_image_state) {
         return true;
     }
     if ((bind_swapchain == other_image_state.bind_swapchain) && (bind_swapchain != VK_NULL_HANDLE)) {
+        aliasing_images.insert(other_image_state.image);
+        other_image_state.aliasing_images.insert(this->image);
+        return true;
+    }
+    if (IsMultiplanarCompatibleWithSingleplaneAliasing(other_image_state)) {
         aliasing_images.insert(other_image_state.image);
         other_image_state.aliasing_images.insert(this->image);
         return true;

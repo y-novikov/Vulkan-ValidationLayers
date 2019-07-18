@@ -315,6 +315,7 @@ class IMAGE_STATE : public BINDABLE {
     IMAGE_STATE(IMAGE_STATE const &rh_obj) = delete;
 
     std::unordered_set<VkImage> aliasing_images;
+    bool IsMultiplanarCompatibleWithSingleplaneAliasing(IMAGE_STATE &other_image_state);
     bool IsCreateInfoEqual(VkImageCreateInfo &other_createInfo);
     bool IsCompatibleAliasing(IMAGE_STATE &other_image_state);
 
