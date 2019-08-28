@@ -23,27 +23,6 @@
       "commit" : "v1.1.123"
     },
     {
-      "name" : "Vulkan-Loader",
-      "url" : "https://github.com/KhronosGroup/Vulkan-Loader.git",
-      "sub_dir" : "Vulkan-Loader",
-      "build_dir" : "Vulkan-Loader/build",
-      "install_dir" : "Vulkan-Loader/build/install",
-      "commit" : "v1.1.123",
-      "deps" : [
-        {
-          "var_name" : "VULKAN_HEADERS_INSTALL_DIR",
-          "repo_name" : "Vulkan-Headers"
-        }
-      ],
-      "cmake_options" : [
-        "-DBUILD_TESTS=NO"
-      ],
-      "build_platforms" : [
-        "linux",
-        "darwin"
-      ]
-    },
-    {
       "name" : "VulkanTools",
       "url" : "https://github.com/LunarG/VulkanTools.git",
       "sub_dir" : "VulkanTools",
@@ -80,6 +59,27 @@
         "TRAVIS"
       ],
       "build_step" : "skip"
+    },
+    {
+      "name" : "Vulkan-Loader",
+      "url" : "https://github.com/KhronosGroup/Vulkan-Loader.git",
+      "sub_dir" : "Vulkan-Loader",
+      "build_dir" : "Vulkan-Loader/build",
+      "install_dir" : "Vulkan-Loader/build/install",
+      "commit" : "master",
+      "deps" : [
+        {
+          "var_name" : "VULKAN_HEADERS_INSTALL_DIR",
+          "repo_name" : "Vulkan-Headers"
+        }
+      ],
+      "cmake_options" : [
+        "-DBUILD_TESTS=NO"
+      ],
+      "build_platforms" : [
+        "linux",
+        "darwin"
+      ]
     },
     {
       "name" : "Vulkan-Tools",
