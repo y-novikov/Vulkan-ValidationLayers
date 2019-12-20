@@ -745,16 +745,16 @@ bool CoreChecks::ValidatePipelineDrawtimeState(const LAST_BOUND_STATE &state, co
                 sp_error = "VUID-vkCmdDrawIndirect-subpass-02685";
                 break;
             case CMD_DRAWINDIRECTCOUNT:
-                rp_error = "VUID-vkCmdDrawIndirectCountKHR-renderPass-02684";
-                sp_error = "VUID-vkCmdDrawIndirectCountKHR-subpass-02685";
+                rp_error = "VUID-vkCmdDrawIndirectCount-renderPass-02684";
+                sp_error = "VUID-vkCmdDrawIndirectCount-subpass-02685";
                 break;
             case CMD_DRAWINDEXEDINDIRECT:
                 rp_error = "VUID-vkCmdDrawIndexedIndirect-renderPass-02684";
                 sp_error = "VUID-vkCmdDrawIndexedIndirect-subpass-02685";
                 break;
             case CMD_DRAWINDEXEDINDIRECTCOUNT:
-                rp_error = "VUID-vkCmdDrawIndexedIndirectCountKHR-renderPass-02684";
-                sp_error = "VUID-vkCmdDrawIndexedIndirectCountKHR-subpass-02685";
+                rp_error = "VUID-vkCmdDrawIndexedIndirectCount-renderPass-02684";
+                sp_error = "VUID-vkCmdDrawIndexedIndirectCount-subpass-02685";
                 break;
             case CMD_DRAWMESHTASKSNV:
                 rp_error = "VUID-vkCmdDrawMeshTasksNV-renderPass-02684";
@@ -814,9 +814,9 @@ static const char *string_VuidNotCompatibleForSet(CMD_TYPE cmd_type) {
         {CMD_DRAW, "VUID-vkCmdDraw-None-02697"},
         {CMD_DRAWINDEXED, "VUID-vkCmdDrawIndexed-None-02697"},
         {CMD_DRAWINDEXEDINDIRECT, "VUID-vkCmdDrawIndexedIndirect-None-02697"},
-        {CMD_DRAWINDEXEDINDIRECTCOUNT, "VUID-vkCmdDrawIndexedIndirectCountKHR-None-02697"},
+        {CMD_DRAWINDEXEDINDIRECTCOUNT, "VUID-vkCmdDrawIndexedIndirectCount-None-02697"},
         {CMD_DRAWINDIRECT, "VUID-vkCmdDrawIndirect-None-02697"},
-        {CMD_DRAWINDIRECTCOUNT, "VUID-vkCmdDrawIndirectCountKHR-None-02697"},
+        {CMD_DRAWINDIRECTCOUNT, "VUID-vkCmdDrawIndirectCount-None-02697"},
         {CMD_DRAWMESHTASKSINDIRECTCOUNTNV, "VUID-vkCmdDrawMeshTasksIndirectCountNV-None-02697"},
         {CMD_DRAWMESHTASKSINDIRECTNV, "VUID-vkCmdDrawMeshTasksIndirectNV-None-02697"},
         {CMD_DRAWMESHTASKSNV, "VUID-vkCmdDrawMeshTasksNV-None-02697"},
@@ -3124,14 +3124,14 @@ bool CoreChecks::PreCallValidateCreateSemaphore(VkDevice device, const VkSemapho
     if (sem_type_create_info && sem_type_create_info->semaphoreType == VK_SEMAPHORE_TYPE_TIMELINE_KHR &&
         !enabled_features.timeline_semaphore_features.timelineSemaphore) {
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_SEMAPHORE_EXT, 0,
-                        "VUID-VkSemaphoreTypeCreateInfoKHR-timelineSemaphore-03252",
+                        "VUID-VkSemaphoreTypeCreateInfo-timelineSemaphore-03252",
                         "VkCreateSemaphore: timelineSemaphore feature is not enabled, can not create timeline semaphores");
     }
 
     if (sem_type_create_info && sem_type_create_info->semaphoreType == VK_SEMAPHORE_TYPE_BINARY_KHR &&
         sem_type_create_info->initialValue != 0) {
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_SEMAPHORE_EXT, 0,
-                        "VUID-VkSemaphoreTypeCreateInfoKHR-semaphoreType-03279",
+                        "VUID-VkSemaphoreTypeCreateInfo-semaphoreType-03279",
                         "vkCreateSemaphore: if semaphoreType is VK_SEMAPHORE_TYPE_BINARY_KHR, initialValue must be zero");
     }
 
@@ -3146,7 +3146,7 @@ bool CoreChecks::PreCallValidateWaitSemaphoresKHR(VkDevice device, const VkSemap
         auto *pSemaphore = GetSemaphoreState(pWaitInfo->pSemaphores[i]);
         if (pSemaphore && pSemaphore->type != VK_SEMAPHORE_TYPE_TIMELINE_KHR) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_SEMAPHORE_EXT,
-                            HandleToUint64(pWaitInfo->pSemaphores[i]), "VUID-VkSemaphoreWaitInfoKHR-pSemaphores-03256",
+                            HandleToUint64(pWaitInfo->pSemaphores[i]), "VUID-VkSemaphoreWaitInfo-pSemaphores-03256",
                             "VkWaitSemaphoresKHR: all semaphores in pWaitInfo must be timeline semaphores, but %s is not",
                             report_data->FormatHandle(pWaitInfo->pSemaphores[i]).c_str());
         }
@@ -7885,16 +7885,16 @@ bool CoreChecks::ValidateRenderPassDAG(RenderPassCreateVersion rp_version, const
         if (use_rp2 && (dependency.dependencyFlags & VK_DEPENDENCY_VIEW_LOCAL_BIT) && (pCreateInfo->pSubpasses[0].viewMask == 0)) {
             skip |= log_msg(
                 report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                "VUID-VkRenderPassCreateInfo2KHR-viewMask-03059",
+                "VUID-VkRenderPassCreateInfo2-viewMask-03059",
                 "Dependency %u specifies the VK_DEPENDENCY_VIEW_LOCAL_BIT, but multiview is not enabled for this render pass.", i);
         } else if (use_rp2 && !(dependency.dependencyFlags & VK_DEPENDENCY_VIEW_LOCAL_BIT) && dependency.viewOffset != 0) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                            "VUID-VkSubpassDependency2KHR-dependencyFlags-03092",
+                            "VUID-VkSubpassDependency2-dependencyFlags-03092",
                             "Dependency %u specifies the VK_DEPENDENCY_VIEW_LOCAL_BIT, but also specifies a view offset of %u.", i,
                             dependency.viewOffset);
         } else if (dependency.srcSubpass == VK_SUBPASS_EXTERNAL || dependency.dstSubpass == VK_SUBPASS_EXTERNAL) {
             if (dependency.srcSubpass == dependency.dstSubpass) {
-                vuid = use_rp2 ? "VUID-VkSubpassDependency2KHR-srcSubpass-03085" : "VUID-VkSubpassDependency-srcSubpass-00865";
+                vuid = use_rp2 ? "VUID-VkSubpassDependency2-srcSubpass-03085" : "VUID-VkSubpassDependency-srcSubpass-00865";
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
                                 "The src and dst subpasses in dependency %u are both external.", i);
             } else if (dependency.dependencyFlags & VK_DEPENDENCY_VIEW_LOCAL_BIT) {
@@ -7906,9 +7906,9 @@ bool CoreChecks::ValidateRenderPassDAG(RenderPassCreateVersion rp_version, const
                 if (use_rp2) {
                     // Create render pass 2 distinguishes between source and destination external dependencies.
                     if (dependency.srcSubpass == VK_SUBPASS_EXTERNAL) {
-                        vuid = "VUID-VkSubpassDependency2KHR-dependencyFlags-03090";
+                        vuid = "VUID-VkSubpassDependency2-dependencyFlags-03090";
                     } else {
-                        vuid = "VUID-VkSubpassDependency2KHR-dependencyFlags-03091";
+                        vuid = "VUID-VkSubpassDependency2-dependencyFlags-03091";
                     }
                 }
                 skip |=
@@ -7916,7 +7916,7 @@ bool CoreChecks::ValidateRenderPassDAG(RenderPassCreateVersion rp_version, const
                             "Dependency %u specifies an external dependency but also specifies VK_DEPENDENCY_VIEW_LOCAL_BIT.", i);
             }
         } else if (dependency.srcSubpass > dependency.dstSubpass) {
-            vuid = use_rp2 ? "VUID-VkSubpassDependency2KHR-srcSubpass-03084" : "VUID-VkSubpassDependency-srcSubpass-00864";
+            vuid = use_rp2 ? "VUID-VkSubpassDependency2-srcSubpass-03084" : "VUID-VkSubpassDependency-srcSubpass-00864";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
                             "Dependency %u specifies a dependency from a later subpass (%u) to an earlier subpass (%u), which is "
                             "disallowed to prevent cyclic dependencies.",
@@ -7929,8 +7929,7 @@ bool CoreChecks::ValidateRenderPassDAG(RenderPassCreateVersion rp_version, const
                                 dependency.viewOffset);
             } else if ((dependency.dependencyFlags | VK_DEPENDENCY_VIEW_LOCAL_BIT) != dependency.dependencyFlags &&
                        pCreateInfo->pSubpasses[dependency.srcSubpass].viewMask > 1) {
-                vuid =
-                    use_rp2 ? "VUID-VkRenderPassCreateInfo2KHR-pDependencies-03060" : "VUID-VkSubpassDependency-srcSubpass-00872";
+                vuid = use_rp2 ? "VUID-VkRenderPassCreateInfo2-pDependencies-03060" : "VUID-VkSubpassDependency-srcSubpass-00872";
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
                                 "Dependency %u specifies a self-dependency for subpass %u with a non-zero view mask, but does not "
                                 "specify VK_DEPENDENCY_VIEW_LOCAL_BIT.",
@@ -7939,7 +7938,7 @@ bool CoreChecks::ValidateRenderPassDAG(RenderPassCreateVersion rp_version, const
                         HasNonFramebufferStagePipelineStageFlags(dependency.dstStageMask)) &&
                        (GetGraphicsPipelineStageLogicalOrdinal(latest_src_stage) >
                         GetGraphicsPipelineStageLogicalOrdinal(earliest_dst_stage))) {
-                vuid = use_rp2 ? "VUID-VkSubpassDependency2KHR-srcSubpass-03087" : "VUID-VkSubpassDependency-srcSubpass-00867";
+                vuid = use_rp2 ? "VUID-VkSubpassDependency2-srcSubpass-03087" : "VUID-VkSubpassDependency-srcSubpass-00867";
                 skip |= log_msg(
                     report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
                     "Dependency %u specifies a self-dependency from logically-later stage (%s) to a logically-earlier stage (%s).",
@@ -7958,7 +7957,7 @@ bool CoreChecks::ValidateAttachmentIndex(RenderPassCreateVersion rp_version, uin
 
     if (attachment >= attachment_count && attachment != VK_ATTACHMENT_UNUSED) {
         const char *vuid =
-            use_rp2 ? "VUID-VkRenderPassCreateInfo2KHR-attachment-03051" : "VUID-VkRenderPassCreateInfo-attachment-00834";
+            use_rp2 ? "VUID-VkRenderPassCreateInfo2-attachment-03051" : "VUID-VkRenderPassCreateInfo-attachment-00834";
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
                         "%s: %s attachment %d must be less than the total number of attachments %d.", type, function_name,
                         attachment, attachment_count);
@@ -8004,14 +8003,14 @@ bool CoreChecks::AddAttachmentUse(RenderPassCreateVersion rp_version, uint32_t s
 
     if (uses & new_use) {
         if (attachment_layouts[attachment] != new_layout) {
-            vuid = use_rp2 ? "VUID-VkSubpassDescription2KHR-layout-02528" : "VUID-VkSubpassDescription-layout-02519";
+            vuid = use_rp2 ? "VUID-VkSubpassDescription2-layout-02528" : "VUID-VkSubpassDescription-layout-02519";
             log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
                     "%s: subpass %u already uses attachment %u with a different image layout (%s vs %s).", function_name, subpass,
                     attachment, string_VkImageLayout(attachment_layouts[attachment]), string_VkImageLayout(new_layout));
         }
     } else if (uses & ~ATTACHMENT_INPUT || (uses && (new_use == ATTACHMENT_RESOLVE || new_use == ATTACHMENT_PRESERVE))) {
         /* Note: input attachments are assumed to be done first. */
-        vuid = use_rp2 ? "VUID-VkSubpassDescription2KHR-pPreserveAttachments-03074"
+        vuid = use_rp2 ? "VUID-VkSubpassDescription2-pPreserveAttachments-03074"
                        : "VUID-VkSubpassDescription-pPreserveAttachments-00854";
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
                         "%s: subpass %u uses attachment %u as both %s and %s attachment.", function_name, subpass, attachment,
@@ -8037,7 +8036,7 @@ bool CoreChecks::ValidateRenderpassAttachmentUsage(RenderPassCreateVersion rp_ve
         std::vector<VkImageLayout> attachment_layouts(pCreateInfo->attachmentCount);
 
         if (subpass.pipelineBindPoint != VK_PIPELINE_BIND_POINT_GRAPHICS) {
-            vuid = use_rp2 ? "VUID-VkSubpassDescription2KHR-pipelineBindPoint-03062"
+            vuid = use_rp2 ? "VUID-VkSubpassDescription2-pipelineBindPoint-03062"
                            : "VUID-VkSubpassDescription-pipelineBindPoint-00844";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
                             "%s: Pipeline bind point for subpass %d must be VK_PIPELINE_BIND_POINT_GRAPHICS.", function_name, i);
@@ -8073,7 +8072,7 @@ bool CoreChecks::ValidateRenderpassAttachmentUsage(RenderPassCreateVersion rp_ve
                     // Check for 0
                     if (attachment_ref.aspectMask == 0) {
                         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                                        "VUID-VkSubpassDescription2KHR-attachment-02800",
+                                        "VUID-VkSubpassDescription2-attachment-02800",
                                         "%s:  Input attachment (%d) aspect mask must not be 0.", function_name, j);
                     } else {
                         const VkImageAspectFlags valid_bits =
@@ -8086,7 +8085,7 @@ bool CoreChecks::ValidateRenderpassAttachmentUsage(RenderPassCreateVersion rp_ve
                         // Check for valid aspect mask bits
                         if (attachment_ref.aspectMask & ~valid_bits) {
                             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                                            "VUID-VkSubpassDescription2KHR-attachment-02799",
+                                            "VUID-VkSubpassDescription2-attachment-02799",
                                             "%s:  Input attachment (%d) aspect mask (0x%" PRIx32 ")is invalid.", function_name, j,
                                             attachment_ref.aspectMask);
                         }
@@ -8098,7 +8097,7 @@ bool CoreChecks::ValidateRenderpassAttachmentUsage(RenderPassCreateVersion rp_ve
         for (uint32_t j = 0; j < subpass.preserveAttachmentCount; ++j) {
             uint32_t attachment = subpass.pPreserveAttachments[j];
             if (attachment == VK_ATTACHMENT_UNUSED) {
-                vuid = use_rp2 ? "VUID-VkSubpassDescription2KHR-attachment-03073" : "VUID-VkSubpassDescription-attachment-00853";
+                vuid = use_rp2 ? "VUID-VkSubpassDescription2-attachment-03073" : "VUID-VkSubpassDescription-attachment-00853";
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
                                 "%s:  Preserve attachment (%d) must not be VK_ATTACHMENT_UNUSED.", function_name, j);
             } else {
@@ -8125,7 +8124,7 @@ bool CoreChecks::ValidateRenderpassAttachmentUsage(RenderPassCreateVersion rp_ve
                         subpass_performs_resolve = true;
 
                         if (pCreateInfo->pAttachments[attachment_ref.attachment].samples != VK_SAMPLE_COUNT_1_BIT) {
-                            vuid = use_rp2 ? "VUID-VkSubpassDescription2KHR-pResolveAttachments-03067"
+                            vuid = use_rp2 ? "VUID-VkSubpassDescription2-pResolveAttachments-03067"
                                            : "VUID-VkSubpassDescription-pResolveAttachments-00849";
                             skip |= log_msg(
                                 report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
@@ -8164,7 +8163,7 @@ bool CoreChecks::ValidateRenderpassAttachmentUsage(RenderPassCreateVersion rp_ve
                     VkSampleCountFlagBits last_sample_count =
                         pCreateInfo->pAttachments[subpass.pColorAttachments[last_sample_count_attachment].attachment].samples;
                     if (current_sample_count != last_sample_count) {
-                        vuid = use_rp2 ? "VUID-VkSubpassDescription2KHR-pColorAttachments-03069"
+                        vuid = use_rp2 ? "VUID-VkSubpassDescription2-pColorAttachments-03069"
                                        : "VUID-VkSubpassDescription-pColorAttachments-01417";
                         skip |=
                             log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
@@ -8178,7 +8177,7 @@ bool CoreChecks::ValidateRenderpassAttachmentUsage(RenderPassCreateVersion rp_ve
                 last_sample_count_attachment = j;
 
                 if (subpass_performs_resolve && current_sample_count == VK_SAMPLE_COUNT_1_BIT) {
-                    vuid = use_rp2 ? "VUID-VkSubpassDescription2KHR-pResolveAttachments-03066"
+                    vuid = use_rp2 ? "VUID-VkSubpassDescription2-pResolveAttachments-03066"
                                    : "VUID-VkSubpassDescription-pResolveAttachments-00848";
                     skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
                                     "%s:  Subpass %u requests multisample resolve from attachment %u which has "
@@ -8193,7 +8192,7 @@ bool CoreChecks::ValidateRenderpassAttachmentUsage(RenderPassCreateVersion rp_ve
 
                     if (device_extensions.vk_amd_mixed_attachment_samples) {
                         if (pCreateInfo->pAttachments[attachment_ref.attachment].samples > depth_stencil_sample_count) {
-                            vuid = use_rp2 ? "VUID-VkSubpassDescription2KHR-pColorAttachments-03070"
+                            vuid = use_rp2 ? "VUID-VkSubpassDescription2-pColorAttachments-03070"
                                            : "VUID-VkSubpassDescription-pColorAttachments-01506";
                             skip |= log_msg(
                                 report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
@@ -8208,7 +8207,7 @@ bool CoreChecks::ValidateRenderpassAttachmentUsage(RenderPassCreateVersion rp_ve
 
                     if (!device_extensions.vk_amd_mixed_attachment_samples && !device_extensions.vk_nv_framebuffer_mixed_samples &&
                         current_sample_count != depth_stencil_sample_count) {
-                        vuid = use_rp2 ? "VUID-VkSubpassDescription2KHR-pDepthStencilAttachment-03071"
+                        vuid = use_rp2 ? "VUID-VkSubpassDescription2-pDepthStencilAttachment-03071"
                                        : "VUID-VkSubpassDescription-pDepthStencilAttachment-01418";
                         skip |= log_msg(
                             report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
@@ -8225,7 +8224,7 @@ bool CoreChecks::ValidateRenderpassAttachmentUsage(RenderPassCreateVersion rp_ve
             if (subpass_performs_resolve && subpass.pResolveAttachments[j].attachment != VK_ATTACHMENT_UNUSED &&
                 subpass.pResolveAttachments[j].attachment < pCreateInfo->attachmentCount) {
                 if (attachment_ref.attachment == VK_ATTACHMENT_UNUSED) {
-                    vuid = use_rp2 ? "VUID-VkSubpassDescription2KHR-pResolveAttachments-03065"
+                    vuid = use_rp2 ? "VUID-VkSubpassDescription2-pResolveAttachments-03065"
                                    : "VUID-VkSubpassDescription-pResolveAttachments-00847";
                     skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
                                     "%s:  Subpass %u requests multisample resolve from attachment %u which has "
@@ -8235,7 +8234,7 @@ bool CoreChecks::ValidateRenderpassAttachmentUsage(RenderPassCreateVersion rp_ve
                     const auto &color_desc = pCreateInfo->pAttachments[attachment_ref.attachment];
                     const auto &resolve_desc = pCreateInfo->pAttachments[subpass.pResolveAttachments[j].attachment];
                     if (color_desc.format != resolve_desc.format) {
-                        vuid = use_rp2 ? "VUID-VkSubpassDescription2KHR-pResolveAttachments-03068"
+                        vuid = use_rp2 ? "VUID-VkSubpassDescription2-pResolveAttachments-03068"
                                        : "VUID-VkSubpassDescription-pResolveAttachments-00850";
                         skip |=
                             log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
@@ -8277,7 +8276,7 @@ bool CoreChecks::ValidateCreateRenderPass(VkDevice device, RenderPassCreateVersi
 
         if ((subpass.flags & VK_SUBPASS_DESCRIPTION_PER_VIEW_POSITION_X_ONLY_BIT_NVX) != 0 &&
             (subpass.flags & VK_SUBPASS_DESCRIPTION_PER_VIEW_ATTRIBUTES_BIT_NVX) == 0) {
-            vuid = use_rp2 ? "VUID-VkSubpassDescription2KHR-flags-03076" : "VUID-VkSubpassDescription-flags-00856";
+            vuid = use_rp2 ? "VUID-VkSubpassDescription2-flags-03076" : "VUID-VkSubpassDescription-flags-00856";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
                             "%s: The flags parameter of subpass description %u includes "
                             "VK_SUBPASS_DESCRIPTION_PER_VIEW_POSITION_X_ONLY_BIT_NVX but does not also include "
@@ -8289,20 +8288,20 @@ bool CoreChecks::ValidateCreateRenderPass(VkDevice device, RenderPassCreateVersi
     if (rp_version == RENDER_PASS_VERSION_2) {
         if (viewMaskNonZero && viewMaskZero) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                            "VUID-VkRenderPassCreateInfo2KHR-viewMask-03058",
+                            "VUID-VkRenderPassCreateInfo2-viewMask-03058",
                             "%s: Some view masks are non-zero whilst others are zero.", function_name);
         }
 
         if (viewMaskZero && pCreateInfo->correlatedViewMaskCount != 0) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                            "VUID-VkRenderPassCreateInfo2KHR-viewMask-03057",
+                            "VUID-VkRenderPassCreateInfo2-viewMask-03057",
                             "%s: Multiview is not enabled but correlation masks are still provided", function_name);
         }
     }
     uint32_t aggregated_cvms = 0;
     for (uint32_t i = 0; i < pCreateInfo->correlatedViewMaskCount; ++i) {
         if (aggregated_cvms & pCreateInfo->pCorrelatedViewMasks[i]) {
-            vuid = use_rp2 ? "VUID-VkRenderPassCreateInfo2KHR-pCorrelatedViewMasks-03056"
+            vuid = use_rp2 ? "VUID-VkRenderPassCreateInfo2-pCorrelatedViewMasks-03056"
                            : "VUID-VkRenderPassMultiviewCreateInfo-pCorrelationMasks-00841";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
                             "%s: pCorrelatedViewMasks[%u] contains a previously appearing view bit.", function_name, i);
@@ -8314,13 +8313,13 @@ bool CoreChecks::ValidateCreateRenderPass(VkDevice device, RenderPassCreateVersi
         auto const &dependency = pCreateInfo->pDependencies[i];
         if (rp_version == RENDER_PASS_VERSION_2) {
             skip |= ValidateStageMaskGsTsEnables(
-                dependency.srcStageMask, function_name, "VUID-VkSubpassDependency2KHR-srcStageMask-03080",
-                "VUID-VkSubpassDependency2KHR-srcStageMask-03082", "VUID-VkSubpassDependency2KHR-srcStageMask-02103",
-                "VUID-VkSubpassDependency2KHR-srcStageMask-02104");
+                dependency.srcStageMask, function_name, "VUID-VkSubpassDependency2-srcStageMask-03080",
+                "VUID-VkSubpassDependency2-srcStageMask-03082", "VUID-VkSubpassDependency2-srcStageMask-02103",
+                "VUID-VkSubpassDependency2-srcStageMask-02104");
             skip |= ValidateStageMaskGsTsEnables(
-                dependency.dstStageMask, function_name, "VUID-VkSubpassDependency2KHR-dstStageMask-03081",
-                "VUID-VkSubpassDependency2KHR-dstStageMask-03083", "VUID-VkSubpassDependency2KHR-dstStageMask-02105",
-                "VUID-VkSubpassDependency2KHR-dstStageMask-02106");
+                dependency.dstStageMask, function_name, "VUID-VkSubpassDependency2-dstStageMask-03081",
+                "VUID-VkSubpassDependency2-dstStageMask-03083", "VUID-VkSubpassDependency2-dstStageMask-02105",
+                "VUID-VkSubpassDependency2-dstStageMask-02106");
         } else {
             skip |= ValidateStageMaskGsTsEnables(
                 dependency.srcStageMask, function_name, "VUID-VkSubpassDependency-srcStageMask-00860",
@@ -8333,14 +8332,14 @@ bool CoreChecks::ValidateCreateRenderPass(VkDevice device, RenderPassCreateVersi
         }
 
         if (!ValidateAccessMaskPipelineStage(device_extensions, dependency.srcAccessMask, dependency.srcStageMask)) {
-            vuid = use_rp2 ? "VUID-VkSubpassDependency2KHR-srcAccessMask-03088" : "VUID-VkSubpassDependency-srcAccessMask-00868";
+            vuid = use_rp2 ? "VUID-VkSubpassDependency2-srcAccessMask-03088" : "VUID-VkSubpassDependency-srcAccessMask-00868";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
                             "%s: pDependencies[%u].srcAccessMask (0x%" PRIx32 ") is not supported by srcStageMask (0x%" PRIx32 ").",
                             function_name, i, dependency.srcAccessMask, dependency.srcStageMask);
         }
 
         if (!ValidateAccessMaskPipelineStage(device_extensions, dependency.dstAccessMask, dependency.dstStageMask)) {
-            vuid = use_rp2 ? "VUID-VkSubpassDependency2KHR-dstAccessMask-03089" : "VUID-VkSubpassDependency-dstAccessMask-00869";
+            vuid = use_rp2 ? "VUID-VkSubpassDependency2-dstAccessMask-03089" : "VUID-VkSubpassDependency-dstAccessMask-00869";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
                             "%s: pDependencies[%u].dstAccessMask (0x%" PRIx32 ") is not supported by dstStageMask (0x%" PRIx32 ").",
                             function_name, i, dependency.dstAccessMask, dependency.dstStageMask);
@@ -8469,7 +8468,7 @@ static bool ValidateDepthStencilResolve(const debug_report_data *report_data,
         if (resolve_attachment_not_unused && subpass.pDepthStencilAttachment != nullptr &&
             subpass.pDepthStencilAttachment->attachment == VK_ATTACHMENT_UNUSED) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                            "VUID-VkSubpassDescriptionDepthStencilResolveKHR-pDepthStencilResolveAttachment-03177",
+                            "VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03177",
                             "vkCreateRenderPass2KHR(): Subpass %u includes a VkSubpassDescriptionDepthStencilResolveKHR "
                             "structure with resolve attachment %u, but pDepthStencilAttachment=VK_ATTACHMENT_UNUSED.",
                             i, resolve->pDepthStencilResolveAttachment->attachment);
@@ -8478,7 +8477,7 @@ static bool ValidateDepthStencilResolve(const debug_report_data *report_data,
         if (resolve_attachment_not_unused && resolve->depthResolveMode == VK_RESOLVE_MODE_NONE_KHR &&
             resolve->stencilResolveMode == VK_RESOLVE_MODE_NONE_KHR) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                            "VUID-VkSubpassDescriptionDepthStencilResolveKHR-pDepthStencilResolveAttachment-03178",
+                            "VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03178",
                             "vkCreateRenderPass2KHR(): Subpass %u includes a VkSubpassDescriptionDepthStencilResolveKHR "
                             "structure with resolve attachment %u, but both depth and stencil resolve modes are "
                             "VK_RESOLVE_MODE_NONE_KHR.",
@@ -8489,7 +8488,7 @@ static bool ValidateDepthStencilResolve(const debug_report_data *report_data,
             pCreateInfo->pAttachments[subpass.pDepthStencilAttachment->attachment].samples == VK_SAMPLE_COUNT_1_BIT) {
             skip |= log_msg(
                 report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                "VUID-VkSubpassDescriptionDepthStencilResolveKHR-pDepthStencilResolveAttachment-03179",
+                "VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03179",
                 "vkCreateRenderPass2KHR(): Subpass %u includes a VkSubpassDescriptionDepthStencilResolveKHR "
                 "structure with resolve attachment %u. However pDepthStencilAttachment has sample count=VK_SAMPLE_COUNT_1_BIT.",
                 i, resolve->pDepthStencilResolveAttachment->attachment);
@@ -8498,7 +8497,7 @@ static bool ValidateDepthStencilResolve(const debug_report_data *report_data,
         if (valid_resolve_attachment_index &&
             pCreateInfo->pAttachments[resolve->pDepthStencilResolveAttachment->attachment].samples != VK_SAMPLE_COUNT_1_BIT) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                            "VUID-VkSubpassDescriptionDepthStencilResolveKHR-pDepthStencilResolveAttachment-03180",
+                            "VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03180",
                             "vkCreateRenderPass2KHR(): Subpass %u includes a VkSubpassDescriptionDepthStencilResolveKHR "
                             "structure with resolve attachment %u which has sample count=VK_SAMPLE_COUNT_1_BIT.",
                             i, resolve->pDepthStencilResolveAttachment->attachment);
@@ -8517,7 +8516,7 @@ static bool ValidateDepthStencilResolve(const debug_report_data *report_data,
               FormatDepthNumericalType(pDepthStencilResolveAttachmentFormat)))) {
             skip |=
                 log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                        "VUID-VkSubpassDescriptionDepthStencilResolveKHR-pDepthStencilResolveAttachment-03181",
+                        "VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03181",
                         "vkCreateRenderPass2KHR(): Subpass %u includes a VkSubpassDescriptionDepthStencilResolveKHR "
                         "structure with resolve attachment %u which has a depth component (size %u). The depth component "
                         "of pDepthStencilAttachment must have the same number of bits (currently %u) and the same numerical type.",
@@ -8531,7 +8530,7 @@ static bool ValidateDepthStencilResolve(const debug_report_data *report_data,
               FormatStencilNumericalType(pDepthStencilResolveAttachmentFormat)))) {
             skip |=
                 log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                        "VUID-VkSubpassDescriptionDepthStencilResolveKHR-pDepthStencilResolveAttachment-03182",
+                        "VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03182",
                         "vkCreateRenderPass2KHR(): Subpass %u includes a VkSubpassDescriptionDepthStencilResolveKHR "
                         "structure with resolve attachment %u which has a stencil component (size %u). The stencil component "
                         "of pDepthStencilAttachment must have the same number of bits (currently %u) and the same numerical type.",
@@ -8542,7 +8541,7 @@ static bool ValidateDepthStencilResolve(const debug_report_data *report_data,
         if (!(resolve->depthResolveMode == VK_RESOLVE_MODE_NONE_KHR ||
               resolve->depthResolveMode & depth_stencil_resolve_props.supportedDepthResolveModes)) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                            "VUID-VkSubpassDescriptionDepthStencilResolveKHR-depthResolveMode-03183",
+                            "VUID-VkSubpassDescriptionDepthStencilResolve-depthResolveMode-03183",
                             "vkCreateRenderPass2KHR(): Subpass %u includes a VkSubpassDescriptionDepthStencilResolveKHR "
                             "structure with invalid depthResolveMode=%u.",
                             i, resolve->depthResolveMode);
@@ -8551,7 +8550,7 @@ static bool ValidateDepthStencilResolve(const debug_report_data *report_data,
         if (!(resolve->stencilResolveMode == VK_RESOLVE_MODE_NONE_KHR ||
               resolve->stencilResolveMode & depth_stencil_resolve_props.supportedStencilResolveModes)) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                            "VUID-VkSubpassDescriptionDepthStencilResolveKHR-stencilResolveMode-03184",
+                            "VUID-VkSubpassDescriptionDepthStencilResolve-stencilResolveMode-03184",
                             "vkCreateRenderPass2KHR(): Subpass %u includes a VkSubpassDescriptionDepthStencilResolveKHR "
                             "structure with invalid stencilResolveMode=%u.",
                             i, resolve->stencilResolveMode);
@@ -8562,7 +8561,7 @@ static bool ValidateDepthStencilResolve(const debug_report_data *report_data,
             depth_stencil_resolve_props.independentResolveNone == VK_FALSE &&
             !(resolve->depthResolveMode == resolve->stencilResolveMode)) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                            "VUID-VkSubpassDescriptionDepthStencilResolveKHR-pDepthStencilResolveAttachment-03185",
+                            "VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03185",
                             "vkCreateRenderPass2KHR(): Subpass %u includes a VkSubpassDescriptionDepthStencilResolveKHR "
                             "structure. The values of depthResolveMode (%u) and stencilResolveMode (%u) must be identical.",
                             i, resolve->depthResolveMode, resolve->stencilResolveMode);
@@ -8574,7 +8573,7 @@ static bool ValidateDepthStencilResolve(const debug_report_data *report_data,
             !(resolve->depthResolveMode == resolve->stencilResolveMode || resolve->depthResolveMode == VK_RESOLVE_MODE_NONE_KHR ||
               resolve->stencilResolveMode == VK_RESOLVE_MODE_NONE_KHR)) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                            "VUID-VkSubpassDescriptionDepthStencilResolveKHR-pDepthStencilResolveAttachment-03186",
+                            "VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03186",
                             "vkCreateRenderPass2KHR(): Subpass %u includes a VkSubpassDescriptionDepthStencilResolveKHR "
                             "structure. The values of depthResolveMode (%u) and stencilResolveMode (%u) must be identical, or "
                             "one of them must be %u.",
@@ -8762,7 +8761,7 @@ bool CoreChecks::VerifyFramebufferAndRenderPassImageViews(const VkRenderPassBegi
                     if (pImageViewCreateInfo->subresourceRange.levelCount != 1) {
                         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT,
                                         HandleToUint64(pRenderPassAttachmentBeginInfo->pAttachments[i]),
-                                        "VUID-VkRenderPassAttachmentBeginInfoKHR-pAttachments-03218",
+                                        "VUID-VkRenderPassAttachmentBeginInfo-pAttachments-03218",
                                         "VkRenderPassAttachmentBeginInfo: Image view #%u created with multiple (%u) mip levels.", i,
                                         pImageViewCreateInfo->subresourceRange.levelCount);
                     }
@@ -8778,7 +8777,7 @@ bool CoreChecks::VerifyFramebufferAndRenderPassImageViews(const VkRenderPassBegi
                         skip |=
                             log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT,
                                     HandleToUint64(pRenderPassAttachmentBeginInfo->pAttachments[i]),
-                                    "VUID-VkRenderPassAttachmentBeginInfoKHR-pAttachments-03219",
+                                    "VUID-VkRenderPassAttachmentBeginInfo-pAttachments-03219",
                                     "VkRenderPassAttachmentBeginInfo: Image view #%u created with non-identity swizzle. All "
                                     "framebuffer attachments must have been created with the identity swizzle. Here are the actual "
                                     "swizzle values:\n"
@@ -8885,14 +8884,14 @@ bool CoreChecks::ValidateCmdBeginRenderPass(VkCommandBuffer commandBuffer, Rende
                                                     function_name, "VUID-VkRenderPassBeginInfo-renderPass-00904");
         }
 
-        vuid = use_rp2 ? "VUID-vkCmdBeginRenderPass2KHR-renderpass" : "VUID-vkCmdBeginRenderPass-renderpass";
+        vuid = use_rp2 ? "VUID-vkCmdBeginRenderPass2-renderpass" : "VUID-vkCmdBeginRenderPass-renderpass";
         skip |= InsideRenderPass(cb_state, function_name, vuid);
         skip |= ValidateDependencies(framebuffer, render_pass_state);
 
-        vuid = use_rp2 ? "VUID-vkCmdBeginRenderPass2KHR-bufferlevel" : "VUID-vkCmdBeginRenderPass-bufferlevel";
+        vuid = use_rp2 ? "VUID-vkCmdBeginRenderPass2-bufferlevel" : "VUID-vkCmdBeginRenderPass-bufferlevel";
         skip |= ValidatePrimaryCommandBuffer(cb_state, function_name, vuid);
 
-        vuid = use_rp2 ? "VUID-vkCmdBeginRenderPass2KHR-commandBuffer-cmdpool" : "VUID-vkCmdBeginRenderPass-commandBuffer-cmdpool";
+        vuid = use_rp2 ? "VUID-vkCmdBeginRenderPass2-commandBuffer-cmdpool" : "VUID-vkCmdBeginRenderPass-commandBuffer-cmdpool";
         skip |= ValidateCmdQueueFlags(cb_state, function_name, VK_QUEUE_GRAPHICS_BIT, vuid);
 
         const CMD_TYPE cmd_type = use_rp2 ? CMD_BEGINRENDERPASS2 : CMD_BEGINRENDERPASS;
@@ -8966,20 +8965,20 @@ bool CoreChecks::ValidateCmdNextSubpass(RenderPassCreateVersion rp_version, VkCo
     const char *vuid;
     const char *const function_name = use_rp2 ? "vkCmdNextSubpass2KHR()" : "vkCmdNextSubpass()";
 
-    vuid = use_rp2 ? "VUID-vkCmdNextSubpass2KHR-bufferlevel" : "VUID-vkCmdNextSubpass-bufferlevel";
+    vuid = use_rp2 ? "VUID-vkCmdNextSubpass2-bufferlevel" : "VUID-vkCmdNextSubpass-bufferlevel";
     skip |= ValidatePrimaryCommandBuffer(cb_state, function_name, vuid);
 
-    vuid = use_rp2 ? "VUID-vkCmdNextSubpass2KHR-commandBuffer-cmdpool" : "VUID-vkCmdNextSubpass-commandBuffer-cmdpool";
+    vuid = use_rp2 ? "VUID-vkCmdNextSubpass2-commandBuffer-cmdpool" : "VUID-vkCmdNextSubpass-commandBuffer-cmdpool";
     skip |= ValidateCmdQueueFlags(cb_state, function_name, VK_QUEUE_GRAPHICS_BIT, vuid);
     const CMD_TYPE cmd_type = use_rp2 ? CMD_NEXTSUBPASS2 : CMD_NEXTSUBPASS;
     skip |= ValidateCmd(cb_state, cmd_type, function_name);
 
-    vuid = use_rp2 ? "VUID-vkCmdNextSubpass2KHR-renderpass" : "VUID-vkCmdNextSubpass-renderpass";
+    vuid = use_rp2 ? "VUID-vkCmdNextSubpass2-renderpass" : "VUID-vkCmdNextSubpass-renderpass";
     skip |= OutsideRenderPass(cb_state, function_name, vuid);
 
     auto subpassCount = cb_state->activeRenderPass->createInfo.subpassCount;
     if (cb_state->activeSubpass == subpassCount - 1) {
-        vuid = use_rp2 ? "VUID-vkCmdNextSubpass2KHR-None-03102" : "VUID-vkCmdNextSubpass-None-00909";
+        vuid = use_rp2 ? "VUID-vkCmdNextSubpass2-None-03102" : "VUID-vkCmdNextSubpass-None-00909";
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
                         HandleToUint64(commandBuffer), vuid, "%s: Attempted to advance beyond final subpass.", function_name);
     }
@@ -9023,19 +9022,19 @@ bool CoreChecks::ValidateCmdEndRenderPass(RenderPassCreateVersion rp_version, Vk
     RENDER_PASS_STATE *rp_state = cb_state->activeRenderPass;
     if (rp_state) {
         if (cb_state->activeSubpass != rp_state->createInfo.subpassCount - 1) {
-            vuid = use_rp2 ? "VUID-vkCmdEndRenderPass2KHR-None-03103" : "VUID-vkCmdEndRenderPass-None-00910";
+            vuid = use_rp2 ? "VUID-vkCmdEndRenderPass2-None-03103" : "VUID-vkCmdEndRenderPass-None-00910";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
                             HandleToUint64(commandBuffer), vuid, "%s: Called before reaching final subpass.", function_name);
         }
     }
 
-    vuid = use_rp2 ? "VUID-vkCmdEndRenderPass2KHR-renderpass" : "VUID-vkCmdEndRenderPass-renderpass";
+    vuid = use_rp2 ? "VUID-vkCmdEndRenderPass2-renderpass" : "VUID-vkCmdEndRenderPass-renderpass";
     skip |= OutsideRenderPass(cb_state, function_name, vuid);
 
-    vuid = use_rp2 ? "VUID-vkCmdEndRenderPass2KHR-bufferlevel" : "VUID-vkCmdEndRenderPass-bufferlevel";
+    vuid = use_rp2 ? "VUID-vkCmdEndRenderPass2-bufferlevel" : "VUID-vkCmdEndRenderPass-bufferlevel";
     skip |= ValidatePrimaryCommandBuffer(cb_state, function_name, vuid);
 
-    vuid = use_rp2 ? "VUID-vkCmdEndRenderPass2KHR-commandBuffer-cmdpool" : "VUID-vkCmdEndRenderPass-commandBuffer-cmdpool";
+    vuid = use_rp2 ? "VUID-vkCmdEndRenderPass2-commandBuffer-cmdpool" : "VUID-vkCmdEndRenderPass-commandBuffer-cmdpool";
     skip |= ValidateCmdQueueFlags(cb_state, function_name, VK_QUEUE_GRAPHICS_BIT, vuid);
 
     const CMD_TYPE cmd_type = use_rp2 ? CMD_ENDRENDERPASS2 : CMD_ENDRENDERPASS;
@@ -9859,7 +9858,7 @@ bool CoreChecks::PreCallValidateSignalSemaphoreKHR(VkDevice device, const VkSema
     const auto pSemaphore = GetSemaphoreState(pSignalInfo->semaphore);
     if (pSemaphore && pSemaphore->type != VK_SEMAPHORE_TYPE_TIMELINE_KHR) {
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_SEMAPHORE_EXT,
-                        HandleToUint64(pSignalInfo->semaphore), "VUID-VkSemaphoreSignalInfoKHR-semaphore-03257",
+                        HandleToUint64(pSignalInfo->semaphore), "VUID-VkSemaphoreSignalInfo-semaphore-03257",
                         "VkSignalSemaphoreKHR: semaphore %s must be of VK_SEMAPHORE_TYPE_TIMELINE_KHR type",
                         report_data->FormatHandle(pSignalInfo->semaphore).c_str());
     }
@@ -10946,14 +10945,14 @@ bool CoreChecks::PreCallValidateGetBufferDeviceAddressKHR(VkDevice device, const
     if (!enabled_features.buffer_device_address.bufferDeviceAddress &&
         !enabled_features.buffer_device_address_ext.bufferDeviceAddress) {
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT,
-                        HandleToUint64(pInfo->buffer), "VUID-vkGetBufferDeviceAddressKHR-bufferDeviceAddress-03324",
+                        HandleToUint64(pInfo->buffer), "VUID-vkGetBufferDeviceAddress-bufferDeviceAddress-03324",
                         "The bufferDeviceAddress feature must: be enabled.");
     }
 
     if (physical_device_count > 1 && !enabled_features.buffer_device_address.bufferDeviceAddressMultiDevice &&
         !enabled_features.buffer_device_address_ext.bufferDeviceAddressMultiDevice) {
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT,
-                        HandleToUint64(pInfo->buffer), "VUID-vkGetBufferDeviceAddressKHR-device-03325",
+                        HandleToUint64(pInfo->buffer), "VUID-vkGetBufferDeviceAddress-device-03325",
                         "If device was created with multiple physical devices, then the "
                         "bufferDeviceAddressMultiDevice feature must: be enabled.");
     }
@@ -10962,11 +10961,11 @@ bool CoreChecks::PreCallValidateGetBufferDeviceAddressKHR(VkDevice device, const
     if (buffer_state) {
         if (!(buffer_state->createInfo.flags & VK_BUFFER_CREATE_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT_KHR)) {
             skip |= ValidateMemoryIsBoundToBuffer(buffer_state, "vkGetBufferDeviceAddressEXT()",
-                                                  "VUID-VkBufferDeviceAddressInfoKHR-buffer-02600");
+                                                  "VUID-VkBufferDeviceAddressInfo-buffer-02600");
         }
 
         skip |= ValidateBufferUsageFlags(buffer_state, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_KHR, true,
-                                         "VUID-VkBufferDeviceAddressInfoKHR-buffer-02601", "vkGetBufferDeviceAddressEXT()",
+                                         "VUID-VkBufferDeviceAddressInfo-buffer-02601", "vkGetBufferDeviceAddressEXT()",
                                          "VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_EXT");
     }
 
@@ -10982,13 +10981,13 @@ bool CoreChecks::PreCallValidateGetBufferOpaqueCaptureAddressKHR(VkDevice device
 
     if (!enabled_features.buffer_device_address.bufferDeviceAddress) {
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT,
-                        HandleToUint64(pInfo->buffer), "VUID-vkGetBufferOpaqueCaptureAddressKHR-None-03326",
+                        HandleToUint64(pInfo->buffer), "VUID-vkGetBufferOpaqueCaptureAddress-None-03326",
                         "The bufferDeviceAddress feature must: be enabled.");
     }
 
     if (physical_device_count > 1 && !enabled_features.buffer_device_address.bufferDeviceAddressMultiDevice) {
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT,
-                        HandleToUint64(pInfo->buffer), "VUID-vkGetBufferOpaqueCaptureAddressKHR-device-03327",
+                        HandleToUint64(pInfo->buffer), "VUID-vkGetBufferOpaqueCaptureAddress-device-03327",
                         "If device was created with multiple physical devices, then the "
                         "bufferDeviceAddressMultiDevice feature must: be enabled.");
     }
@@ -11001,13 +11000,13 @@ bool CoreChecks::PreCallValidateGetDeviceMemoryOpaqueCaptureAddressKHR(
 
     if (!enabled_features.buffer_device_address.bufferDeviceAddress) {
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT,
-                        HandleToUint64(pInfo->memory), "VUID-vkGetDeviceMemoryOpaqueCaptureAddressKHR-None-03334",
+                        HandleToUint64(pInfo->memory), "VUID-vkGetDeviceMemoryOpaqueCaptureAddress-None-03334",
                         "The bufferDeviceAddress feature must: be enabled.");
     }
 
     if (physical_device_count > 1 && !enabled_features.buffer_device_address.bufferDeviceAddressMultiDevice) {
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT,
-                        HandleToUint64(pInfo->memory), "VUID-vkGetDeviceMemoryOpaqueCaptureAddressKHR-device-03335",
+                        HandleToUint64(pInfo->memory), "VUID-vkGetDeviceMemoryOpaqueCaptureAddress-device-03335",
                         "If device was created with multiple physical devices, then the "
                         "bufferDeviceAddressMultiDevice feature must: be enabled.");
     }
@@ -11017,7 +11016,7 @@ bool CoreChecks::PreCallValidateGetDeviceMemoryOpaqueCaptureAddressKHR(
         auto chained_flags_struct = lvl_find_in_chain<VkMemoryAllocateFlagsInfo>(mem_info->alloc_info.pNext);
         if (!chained_flags_struct || !(chained_flags_struct->flags & VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR)) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT,
-                            HandleToUint64(pInfo->memory), "VUID-VkDeviceMemoryOpaqueCaptureAddressInfoKHR-memory-03336",
+                            HandleToUint64(pInfo->memory), "VUID-VkDeviceMemoryOpaqueCaptureAddressInfo-memory-03336",
                             "memory must have been allocated with VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR.");
         }
     }
@@ -11052,13 +11051,13 @@ bool CoreChecks::PreCallValidateResetQueryPoolEXT(VkDevice device, VkQueryPool q
 
     if (!enabled_features.host_query_reset_features.hostQueryReset) {
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT, HandleToUint64(device),
-                        "VUID-vkResetQueryPoolEXT-None-02665", "Host query reset not enabled for device");
+                        "VUID-vkResetQueryPool-None-02665", "Host query reset not enabled for device");
     }
 
     const auto query_pool_state = GetQueryPoolState(queryPool);
     if (query_pool_state) {
         skip |= ValidateQueryRange(device, queryPool, query_pool_state->createInfo.queryCount, firstQuery, queryCount,
-                                   "VUID-vkResetQueryPoolEXT-firstQuery-02666", "VUID-vkResetQueryPoolEXT-firstQuery-02667");
+                                   "VUID-vkResetQueryPool-firstQuery-02666", "VUID-vkResetQueryPool-firstQuery-02667");
     }
 
     return skip;
@@ -11135,7 +11134,7 @@ bool CoreChecks::PreCallValidateGetSemaphoreCounterValueKHR(VkDevice device, VkS
     const auto *pSemaphore = GetSemaphoreState(semaphore);
     if (pSemaphore && pSemaphore->type != VK_SEMAPHORE_TYPE_TIMELINE_KHR) {
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_SEMAPHORE_EXT,
-                        HandleToUint64(semaphore), "VUID-vkGetSemaphoreCounterValueKHR-semaphore-03255",
+                        HandleToUint64(semaphore), "VUID-vkGetSemaphoreCounterValue-semaphore-03255",
                         "vkGetSemaphoreCounterValueKHR: semaphore %s must be of VK_SEMAPHORE_TYPE_TIMELINE_KHR type",
                         report_data->FormatHandle(semaphore).c_str());
     }
