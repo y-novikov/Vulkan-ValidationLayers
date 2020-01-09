@@ -4456,7 +4456,7 @@ TEST_F(VkLayerTest, DrawIndirectByteCountEXT) {
                VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
         return;
     }
-    ASSERT_NO_FATAL_FAILURE(InitFramework(myDbgFunc, m_errorMonitor));
+    ASSERT_NO_FATAL_FAILURE(InitFramework(LvtDebugUtilsFunc, m_errorMonitor));
 
     if (DeviceExtensionSupported(gpu(), nullptr, VK_EXT_TRANSFORM_FEEDBACK_EXTENSION_NAME)) {
         m_device_extension_names.push_back(VK_EXT_TRANSFORM_FEEDBACK_EXTENSION_NAME);
