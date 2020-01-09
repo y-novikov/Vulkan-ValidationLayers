@@ -246,9 +246,7 @@ class VkRenderFramework : public VkTestFramework {
     VkDepthStencilObj *m_depthStencil;
     PFN_vkCreateDebugReportCallbackEXT m_CreateDebugReportCallback;
     PFN_vkDestroyDebugReportCallbackEXT m_DestroyDebugReportCallback;
-    PFN_vkDebugReportMessageEXT m_DebugReportMessage;
     VkDebugReportCallbackEXT m_globalMsgCallback;
-    VkDebugReportCallbackEXT m_devMsgCallback;
 
     std::vector<const char *> m_instance_layer_names;
     std::vector<const char *> m_instance_extension_names;
