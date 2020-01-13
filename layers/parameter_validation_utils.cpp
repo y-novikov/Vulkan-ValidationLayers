@@ -3785,9 +3785,13 @@ bool StatelessValidation::manual_PreCallValidateCmdDrawIndirectByteCountEXT(VkCo
     bool skip = false;
 
     if ((vertexStride <= 0) || (vertexStride > phys_dev_ext_props.transform_feedback_props.maxTransformFeedbackBufferDataStride)) {
-        skip |= log_msg(
-            report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT, HandleToUint64(counterBuffer),
-            "VUID-vkCmdDrawIndirectByteCountEXT-vertexStride-02289",
+        // skip |= log_msg(
+        //    report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT, HandleToUint64(counterBuffer),
+        //    "VUID-vkCmdDrawIndirectByteCountEXT-vertexStride-02289",
+        //    "vkCmdDrawIndirectByteCountEXT: vertexStride (%d) must be between 0 and maxTransformFeedbackBufferDataStride (%d).",
+        //    vertexStride, phys_dev_ext_props.transform_feedback_props.maxTransformFeedbackBufferDataStride);
+        skip |= LogError(
+            report_data, counterBuffer, "VUID-vkCmdDrawIndirectByteCountEXT-vertexStride-02289",
             "vkCmdDrawIndirectByteCountEXT: vertexStride (%d) must be between 0 and maxTransformFeedbackBufferDataStride (%d).",
             vertexStride, phys_dev_ext_props.transform_feedback_props.maxTransformFeedbackBufferDataStride);
     }
