@@ -649,6 +649,13 @@ static inline bool log_msg(const debug_report_data *debug_data, VkFlags msg_flag
     return result;
 }
 
+// Might move this into the VO, then we wouldn't need to pass in debug_report!  LATER DUDE.
+template <typename HANDLE_T>
+bool LogError(const debug_report_data *debug_data, HANDLE_T src_object, const std::string &vuid_text, const char *format, ...) {
+    return log_msg(debug_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VkHandleInfo<HANDLE_T>::kDebugReportObjectType,
+                   HandleToUint64(src_object), vuid_text, format);
+}
+
 static inline VKAPI_ATTR VkBool32 VKAPI_CALL report_log_callback(VkFlags msg_flags, VkDebugReportObjectTypeEXT obj_type,
                                                                  uint64_t src_object, size_t location, int32_t msg_code,
                                                                  const char *layer_prefix, const char *message, void *user_data) {
