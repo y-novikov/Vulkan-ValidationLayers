@@ -364,6 +364,7 @@ template <> struct VulkanObjectTypeInfo<kVulkanObjectTypeUnknown> {
 };
 
 #endif //  VK_DEFINE_HANDLE logic duplication
+
 template <> struct VkHandleInfo<VkCommandBuffer> {
     static const VulkanObjectType kVulkanObjectType = kVulkanObjectTypeCommandBuffer;
     static const VkDebugReportObjectTypeEXT kDebugReportObjectType = VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT;

@@ -70,6 +70,13 @@ struct HashedUint64 {
 
 extern vl_concurrent_unordered_map<uint64_t, uint64_t, 4, HashedUint64> unique_id_mapping;
 
+////////template <typename HANDLE_T>
+////////bool LogError(const debug_report_data *debug_data, HANDLE_T src_object, const std::string &vuid_text, const char *format, ...) {
+////////    return log_msg(debug_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VkHandleInfo<HANDLE_T>::kDebugReportObjectType,
+////////        HandleToUint64(src_object), vuid_text, format);
+////////}
+
+
 
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetPhysicalDeviceProcAddr(
     VkInstance                                  instance,
@@ -2543,6 +2550,32 @@ class ValidationObject {
             }
             return nullptr;
         };
+
+        // Debug Logging Templates
+        template <typename HANDLE_T>
+        bool LogError(HANDLE_T src_object, const std::string &vuid_text, const char *format, ...) const {
+            return log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VkHandleInfo<HANDLE_T>::kDebugReportObjectType,
+                HandleToUint64(src_object), vuid_text, format);
+        };
+
+        template <typename HANDLE_T>
+        bool LogWarning(HANDLE_T src_object, const std::string &vuid_text, const char *format, ...) const {
+            return log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VkHandleInfo<HANDLE_T>::kDebugReportObjectType,
+                HandleToUint64(src_object), vuid_text, format);
+        };
+
+        template <typename HANDLE_T>
+        bool LogPerformanceWarning(HANDLE_T src_object, const std::string &vuid_text, const char *format, ...) const {
+            return log_msg(report_data, VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT, VkHandleInfo<HANDLE_T>::kDebugReportObjectType,
+                HandleToUint64(src_object), vuid_text, format);
+        };
+
+        template <typename HANDLE_T>
+        bool LogInfo(HANDLE_T src_object, const std::string &vuid_text, const char *format, ...) const {
+            return log_msg(report_data, VK_DEBUG_REPORT_INFORMATION_BIT_EXT, VkHandleInfo<HANDLE_T>::kDebugReportObjectType,
+                HandleToUint64(src_object), vuid_text, format);
+        };
+
 
         // Handle Wrapping Data
         // Reverse map display handles

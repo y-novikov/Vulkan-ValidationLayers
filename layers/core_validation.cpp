@@ -6519,6 +6519,10 @@ bool CoreChecks::ValidateEventStageMask(const ValidationStateTracker *state_data
                                 HandleToUint64(event), kVUID_Core_DrawState_InvalidEvent,
                                 "%s cannot be waited on if it has never been set.",
                                 state_data->report_data->FormatHandle(event).c_str());
+                skip |= state_data->LogError(
+                                event, kVUID_Core_DrawState_InvalidEvent,
+                                "%s cannot be waited on if it has never been set.",
+                                state_data->report_data->FormatHandle(event).c_str());
             } else {
                 stageMask |= global_event_data->stageMask;
             }

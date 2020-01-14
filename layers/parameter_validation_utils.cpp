@@ -3791,7 +3791,7 @@ bool StatelessValidation::manual_PreCallValidateCmdDrawIndirectByteCountEXT(VkCo
         //    "vkCmdDrawIndirectByteCountEXT: vertexStride (%d) must be between 0 and maxTransformFeedbackBufferDataStride (%d).",
         //    vertexStride, phys_dev_ext_props.transform_feedback_props.maxTransformFeedbackBufferDataStride);
         skip |= LogError(
-            report_data, counterBuffer, "VUID-vkCmdDrawIndirectByteCountEXT-vertexStride-02289",
+            counterBuffer, "VUID-vkCmdDrawIndirectByteCountEXT-vertexStride-02289",
             "vkCmdDrawIndirectByteCountEXT: vertexStride (%d) must be between 0 and maxTransformFeedbackBufferDataStride (%d).",
             vertexStride, phys_dev_ext_props.transform_feedback_props.maxTransformFeedbackBufferDataStride);
     }
