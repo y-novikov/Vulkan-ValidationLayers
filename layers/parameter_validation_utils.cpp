@@ -340,10 +340,9 @@ bool StatelessValidation::manual_PreCallValidateCreateBuffer(VkDevice device, co
                                                              const VkAllocationCallbacks *pAllocator, VkBuffer *pBuffer) const {
     bool skip = false;
 
-    const LogMiscParams log_misc{VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT, VK_NULL_HANDLE, "vkCreateBuffer"};
-
     if (pCreateInfo != nullptr) {
-        skip |= ValidateGreaterThanZero(pCreateInfo->size, "pCreateInfo->size", "VUID-VkBufferCreateInfo-size-00912", log_misc);
+        skip |= ValidateGreaterThanZero(pCreateInfo->size, "pCreateInfo->size", "VUID-VkBufferCreateInfo-size-00912",
+                                        VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT, VK_NULL_HANDLE, "vkCreateBuffer");
 
         // Validation for parameters excluded from the generated validation code due to a 'noautovalidity' tag in vk.xml
         if (pCreateInfo->sharingMode == VK_SHARING_MODE_CONCURRENT) {
@@ -384,8 +383,6 @@ bool StatelessValidation::manual_PreCallValidateCreateImage(VkDevice device, con
                                                             const VkAllocationCallbacks *pAllocator, VkImage *pImage) const {
     bool skip = false;
 
-    const LogMiscParams log_misc{VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, VK_NULL_HANDLE, "vkCreateImage"};
-
     if (pCreateInfo != nullptr) {
         // Validation for parameters excluded from the generated validation code due to a 'noautovalidity' tag in vk.xml
         if (pCreateInfo->sharingMode == VK_SHARING_MODE_CONCURRENT) {
@@ -408,17 +405,21 @@ bool StatelessValidation::manual_PreCallValidateCreateImage(VkDevice device, con
             }
         }
 
-        skip |= ValidateGreaterThanZero(pCreateInfo->extent.width, "pCreateInfo->extent.width",
-                                        "VUID-VkImageCreateInfo-extent-00944", log_misc);
-        skip |= ValidateGreaterThanZero(pCreateInfo->extent.height, "pCreateInfo->extent.height",
-                                        "VUID-VkImageCreateInfo-extent-00945", log_misc);
-        skip |= ValidateGreaterThanZero(pCreateInfo->extent.depth, "pCreateInfo->extent.depth",
-                                        "VUID-VkImageCreateInfo-extent-00946", log_misc);
+        skip |=
+            ValidateGreaterThanZero(pCreateInfo->extent.width, "pCreateInfo->extent.width", "VUID-VkImageCreateInfo-extent-00944",
+                                    VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, VK_NULL_HANDLE, "vkCreateImage");
+        skip |=
+            ValidateGreaterThanZero(pCreateInfo->extent.height, "pCreateInfo->extent.height", "VUID-VkImageCreateInfo-extent-00945",
+                                    VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, VK_NULL_HANDLE, "vkCreateImage");
+        skip |=
+            ValidateGreaterThanZero(pCreateInfo->extent.depth, "pCreateInfo->extent.depth", "VUID-VkImageCreateInfo-extent-00946",
+                                    VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, VK_NULL_HANDLE, "vkCreateImage");
 
         skip |= ValidateGreaterThanZero(pCreateInfo->mipLevels, "pCreateInfo->mipLevels", "VUID-VkImageCreateInfo-mipLevels-00947",
-                                        log_misc);
+                                        VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, VK_NULL_HANDLE, "vkCreateImage");
         skip |= ValidateGreaterThanZero(pCreateInfo->arrayLayers, "pCreateInfo->arrayLayers",
-                                        "VUID-VkImageCreateInfo-arrayLayers-00948", log_misc);
+                                        "VUID-VkImageCreateInfo-arrayLayers-00948", VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT,
+                                        VK_NULL_HANDLE, "vkCreateImage");
 
         // InitialLayout must be PREINITIALIZED or UNDEFINED
         if ((pCreateInfo->initialLayout != VK_IMAGE_LAYOUT_UNDEFINED) &&
@@ -2837,8 +2838,6 @@ bool StatelessValidation::manual_PreCallValidateCreateSwapchainKHR(VkDevice devi
                                                                    VkSwapchainKHR *pSwapchain) const {
     bool skip = false;
 
-    const LogMiscParams log_misc{VK_DEBUG_REPORT_OBJECT_TYPE_SWAPCHAIN_KHR_EXT, VK_NULL_HANDLE, "vkCreateSwapchainKHR"};
-
     if (pCreateInfo != nullptr) {
         // Validation for parameters excluded from the generated validation code due to a 'noautovalidity' tag in vk.xml
         if (pCreateInfo->imageSharingMode == VK_SHARING_MODE_CONCURRENT) {
@@ -2862,7 +2861,8 @@ bool StatelessValidation::manual_PreCallValidateCreateSwapchainKHR(VkDevice devi
         }
 
         skip |= ValidateGreaterThanZero(pCreateInfo->imageArrayLayers, "pCreateInfo->imageArrayLayers",
-                                        "VUID-VkSwapchainCreateInfoKHR-imageArrayLayers-01275", log_misc);
+                                        "VUID-VkSwapchainCreateInfoKHR-imageArrayLayers-01275",
+                                        VK_DEBUG_REPORT_OBJECT_TYPE_SWAPCHAIN_KHR_EXT, VK_NULL_HANDLE, "vkCreateSwapchainKHR");
     }
 
     return skip;
