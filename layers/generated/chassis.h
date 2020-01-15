@@ -2554,26 +2554,56 @@ class ValidationObject {
         // Debug Logging Templates
         template <typename HANDLE_T>
         bool LogError(HANDLE_T src_object, const std::string &vuid_text, const char *format, ...) const {
+
+            va_list argptr;
+            va_start(argptr, format);
+            char *str;
+            if (-1 == vasprintf(&str, format, argptr)) {
+                str = nullptr;
+            }
+            va_end(argptr);
+
             return log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VkHandleInfo<HANDLE_T>::kDebugReportObjectType,
-                HandleToUint64(src_object), vuid_text, format);
+                HandleToUint64(src_object), vuid_text, str ? str : "Allocation failure");
         };
 
         template <typename HANDLE_T>
         bool LogWarning(HANDLE_T src_object, const std::string &vuid_text, const char *format, ...) const {
+            va_list argptr;
+            va_start(argptr, format);
+            char *str;
+            if (-1 == vasprintf(&str, format, argptr)) {
+                str = nullptr;
+            }
+            va_end(argptr);
             return log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VkHandleInfo<HANDLE_T>::kDebugReportObjectType,
-                HandleToUint64(src_object), vuid_text, format);
+                HandleToUint64(src_object), vuid_text, str ? str : "Allocation failure");
         };
 
         template <typename HANDLE_T>
         bool LogPerformanceWarning(HANDLE_T src_object, const std::string &vuid_text, const char *format, ...) const {
+            va_list argptr;
+            va_start(argptr, format);
+            char *str;
+            if (-1 == vasprintf(&str, format, argptr)) {
+                str = nullptr;
+            }
+            va_end(argptr);
             return log_msg(report_data, VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT, VkHandleInfo<HANDLE_T>::kDebugReportObjectType,
-                HandleToUint64(src_object), vuid_text, format);
+                HandleToUint64(src_object), vuid_text, str ? str : "Allocation failure");
         };
 
         template <typename HANDLE_T>
         bool LogInfo(HANDLE_T src_object, const std::string &vuid_text, const char *format, ...) const {
+            va_list argptr;
+            va_start(argptr, format);
+            char *str;
+            if (-1 == vasprintf(&str, format, argptr)) {
+                str = nullptr;
+            }
+            va_end(argptr);
             return log_msg(report_data, VK_DEBUG_REPORT_INFORMATION_BIT_EXT, VkHandleInfo<HANDLE_T>::kDebugReportObjectType,
-                HandleToUint64(src_object), vuid_text, format);
+                HandleToUint64(src_object), vuid_text, str ? str : "Allocation failure");
         };
 
 
