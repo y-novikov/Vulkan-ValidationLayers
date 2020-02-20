@@ -33,6 +33,8 @@ void VkBestPracticesLayerTest::InitBestPracticesFramework() {
 TEST_F(VkBestPracticesLayerTest, UseDeprecatedInstanceExtension) {
     TEST_DESCRIPTION("Create an instance with a deprecated extension.");
 
+    SetTargetApiVersion(VK_API_VERSION_1_2);
+
     if (InstanceExtensionSupported(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
         m_instance_extension_names.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
     } else {
