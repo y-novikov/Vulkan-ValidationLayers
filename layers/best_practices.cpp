@@ -48,13 +48,15 @@ bool BestPractices::PreCallValidateCreateInstance(const VkInstanceCreateInfo* pC
                                pCreateInfo->ppEnabledExtensionNames[i]);
         }
 
-        if (white_list(pCreateInfo->ppEnabledExtensionNames[i], kDeprecatedExtensionNames)) {
+        if (((pCreateInfo->pApplicationInfo->apiVersion >= VK_API_VERSION_1_1) &&
+             white_list(pCreateInfo->ppEnabledExtensionNames[i], kDeprecated_1_0_ExtensionNames)) ||
+            ((pCreateInfo->pApplicationInfo->apiVersion >= VK_API_VERSION_1_2) &&
+             white_list(pCreateInfo->ppEnabledExtensionNames[i], kDeprecated_1_1_ExtensionNames))) {
             skip |= LogWarning(instance, kVUID_BestPractices_CreateInstance_DeprecatedExtension,
                                "vkCreateInstance(): Attempting to enable Deprecated Extension %s at CreateInstance time.",
                                pCreateInfo->ppEnabledExtensionNames[i]);
         }
     }
-
     return skip;
 }
 
@@ -88,10 +90,14 @@ bool BestPractices::PreCallValidateCreateDevice(VkPhysicalDevice physicalDevice,
                                "vkCreateDevice(): Attempting to enable Instance Extension %s at CreateDevice time.",
                                pCreateInfo->ppEnabledExtensionNames[i]);
         }
-        if (white_list(pCreateInfo->ppEnabledExtensionNames[i], kDeprecatedExtensionNames)) {
+
+        if (((device_api_version >= VK_API_VERSION_1_1) &&
+            white_list(pCreateInfo->ppEnabledExtensionNames[i], kDeprecated_1_0_ExtensionNames)) ||
+            ((device_api_version >= VK_API_VERSION_1_2) &&
+                white_list(pCreateInfo->ppEnabledExtensionNames[i], kDeprecated_1_1_ExtensionNames))) {
             skip |= LogWarning(instance, kVUID_BestPractices_CreateDevice_DeprecatedExtension,
-                               "vkCreateDevice(): Attempting to enable Deprecated Extension %s at CreateDevice time.",
-                               pCreateInfo->ppEnabledExtensionNames[i]);
+                "vkCreateDevice(): Attempting to enable Deprecated Extension %s at CreateDevice time.",
+                pCreateInfo->ppEnabledExtensionNames[i]);
         }
     }
 
