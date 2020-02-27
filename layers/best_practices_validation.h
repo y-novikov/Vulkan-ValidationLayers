@@ -48,6 +48,85 @@ typedef struct {
     std::string target;
 } DeprecationData;
 
+// How many small indexed drawcalls in a command buffer before a warning is thrown
+static const uint32_t kMaxSmallIndexedDrawcalls = 10;
+
+// How many indices make a small indexed drawcall
+static const int kSmallIndexedDrawcallIndices = 10;
+
+// Maximum sample count for full throughput on Mali GPUs
+static const VkSampleCountFlagBits kMaxEfficientSamplesArm = VK_SAMPLE_COUNT_4_BIT;
+
+// Add this extension after tests are moved to utils: VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
+static const std::set<std::string> kDeprecatedExtensionNames = {
+    VK_KHR_16BIT_STORAGE_EXTENSION_NAME,
+    VK_KHR_8BIT_STORAGE_EXTENSION_NAME,
+    VK_KHR_BIND_MEMORY_2_EXTENSION_NAME,
+    VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+    VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
+    VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME,
+    VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
+    VK_KHR_DESCRIPTOR_UPDATE_TEMPLATE_EXTENSION_NAME,
+    VK_KHR_DEVICE_GROUP_EXTENSION_NAME,
+    VK_KHR_DEVICE_GROUP_CREATION_EXTENSION_NAME,
+    VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME,
+    VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_FENCE_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_FENCE_CAPABILITIES_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME,
+    VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME,
+    VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
+    VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME,
+    VK_KHR_IMAGELESS_FRAMEBUFFER_EXTENSION_NAME,
+    VK_KHR_MAINTENANCE1_EXTENSION_NAME,
+    VK_KHR_MAINTENANCE2_EXTENSION_NAME,
+    VK_KHR_MAINTENANCE3_EXTENSION_NAME,
+    VK_KHR_MULTIVIEW_EXTENSION_NAME,
+    VK_KHR_RELAXED_BLOCK_LAYOUT_EXTENSION_NAME,
+    VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME,
+    VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME,
+    VK_KHR_SEPARATE_DEPTH_STENCIL_LAYOUTS_EXTENSION_NAME,
+    VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME,
+    VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
+    VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME,
+    VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
+    VK_KHR_SHADER_SUBGROUP_EXTENDED_TYPES_EXTENSION_NAME,
+    VK_KHR_SPIRV_1_4_EXTENSION_NAME,
+    VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_EXTENSION_NAME,
+    VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME,
+    VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT_EXTENSION_NAME,
+    VK_KHR_VARIABLE_POINTERS_EXTENSION_NAME,
+    VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME,
+    VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+    VK_EXT_DEBUG_MARKER_EXTENSION_NAME,
+    VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+    VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME,
+    VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME,
+    VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME,
+    VK_EXT_SEPARATE_STENCIL_USAGE_EXTENSION_NAME,
+    VK_EXT_SHADER_SUBGROUP_BALLOT_EXTENSION_NAME,
+    VK_EXT_SHADER_SUBGROUP_VOTE_EXTENSION_NAME,
+    VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME,
+    VK_EXT_VALIDATION_FLAGS_EXTENSION_NAME,
+    VK_AMD_DRAW_INDIRECT_COUNT_EXTENSION_NAME,
+    VK_AMD_GPU_SHADER_HALF_FLOAT_EXTENSION_NAME,
+    VK_AMD_GPU_SHADER_INT16_EXTENSION_NAME,
+    VK_AMD_NEGATIVE_VIEWPORT_HEIGHT_EXTENSION_NAME,
+    VK_NV_DEDICATED_ALLOCATION_EXTENSION_NAME,
+    VK_NV_EXTERNAL_MEMORY_EXTENSION_NAME,
+    VK_NV_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME,
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+    VK_NV_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME,
+#endif
+    VK_NV_GLSL_SHADER_EXTENSION_NAME,
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+    VK_NV_WIN32_KEYED_MUTEX_EXTENSION_NAME,
+#endif
+};
+
 class BestPractices : public ValidationStateTracker {
   public:
     using StateTracker = ValidationStateTracker;
@@ -98,6 +177,7 @@ class BestPractices : public ValidationStateTracker {
     bool PreCallValidateCreateCommandPool(VkDevice device, const VkCommandPoolCreateInfo* pCreateInfo,
                                           const VkAllocationCallbacks* pAllocator, VkCommandPool* pCommandPool) const;
     bool PreCallValidateFreeMemory(VkDevice device, VkDeviceMemory memory, const VkAllocationCallbacks* pAllocator) const;
+    bool ValidateMultisampledBlendingArm(uint32_t createInfoCount, const VkGraphicsPipelineCreateInfo* pCreateInfos) const;
     bool PreCallValidateCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount,
                                                 const VkGraphicsPipelineCreateInfo* pCreateInfos,
                                                 const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines,
@@ -125,10 +205,20 @@ class BestPractices : public ValidationStateTracker {
                                            const VkImageMemoryBarrier* pImageMemoryBarriers) const;
     bool PreCallValidateCmdWriteTimestamp(VkCommandBuffer commandBuffer, VkPipelineStageFlagBits pipelineStage,
                                           VkQueryPool queryPool, uint32_t query) const;
+    bool ValidateCmdBeginRenderPass(VkCommandBuffer commandBuffer, RenderPassCreateVersion rp_version,
+                                    const VkRenderPassBeginInfo* pRenderPassBegin) const;
+    bool PreCallValidateCmdBeginRenderPass(VkCommandBuffer commandBuffer, const VkRenderPassBeginInfo* pRenderPassBegin,
+                                           VkSubpassContents contents) const;
+    bool PreCallValidateCmdBeginRenderPass2KHR(VkCommandBuffer commandBuffer, const VkRenderPassBeginInfo* pRenderPassBegin,
+                                               const VkSubpassBeginInfoKHR* pSubpassBeginInfo) const;
+    bool PreCallValidateCmdBeginRenderPass2(VkCommandBuffer commandBuffer, const VkRenderPassBeginInfo* pRenderPassBegin,
+                                            const VkSubpassBeginInfoKHR* pSubpassBeginInfo) const;
     bool PreCallValidateCmdDraw(VkCommandBuffer commandBuffer, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex,
                                 uint32_t firstInstance) const;
     bool PreCallValidateCmdDrawIndexed(VkCommandBuffer commandBuffer, uint32_t indexCount, uint32_t instanceCount,
                                        uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) const;
+    void PreCallRecordCmdDrawIndexed(VkCommandBuffer commandBuffer, uint32_t indexCount, uint32_t instanceCount,
+                                     uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance);
     bool PreCallValidateCmdDrawIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount,
                                         uint32_t stride) const;
     bool PreCallValidateCmdDrawIndexedIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset,
@@ -170,6 +260,11 @@ class BestPractices : public ValidationStateTracker {
                                             const VkClearRect* pRects) const;
     void ValidateReturnCodes(const char* api_name, VkResult result, const std::vector<VkResult>& success_codes,
                              const std::vector<VkResult>& error_codes) const;
+    bool PreCallValidateCmdResolveImage(VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout,
+                                        VkImage dstImage, VkImageLayout dstImageLayout, uint32_t regionCount,
+                                        const VkImageResolve* pRegions) const;
+    bool PreCallValidateCreateSampler(VkDevice device, const VkSamplerCreateInfo* pCreateInfo,
+                                      const VkAllocationCallbacks* pAllocator, VkSampler* pSampler) const;
 
 // Include code-generated functions
 #include "best_practices.h"
