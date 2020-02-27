@@ -2538,6 +2538,7 @@ typedef enum ValidationCheckDisables {
     VALIDATION_CHECK_DISABLE_PUSH_CONSTANT_RANGE,
     VALIDATION_CHECK_DISABLE_QUERY_VALIDATION,
     VALIDATION_CHECK_DISABLE_IMAGE_LAYOUT_VALIDATION,
+    VALIDATION_CHECK_DISABLE_VENDOR_SPECIFIC_ARM,
 } ValidationCheckDisables;
 
 // CHECK_DISABLED struct is a container for bools that can block validation checks from being performed.
@@ -2557,8 +2558,9 @@ struct CHECK_DISABLED {
     bool stateless_checks;                          // Disable stateless validation checks
     bool handle_wrapping;                           // Disable unique handles/handle wrapping
     bool shader_validation;                         // Skip validation for shaders
+    bool vendor_specific_arm;                       // Skip vendor-specific validation for Arm platforms
 
-    void SetAll(bool value) { std::fill(&command_buffer_state, &shader_validation + 1, value); }
+    void SetAll(bool value) { std::fill(&command_buffer_state, &vendor_specific_arm + 1, value); }
 };
 
 struct CHECK_ENABLED {

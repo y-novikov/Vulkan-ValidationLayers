@@ -136,6 +136,7 @@ static const std::unordered_map<std::string, ValidationCheckDisables> Validation
     {"VALIDATION_CHECK_DISABLE_PUSH_CONSTANT_RANGE", VALIDATION_CHECK_DISABLE_PUSH_CONSTANT_RANGE},
     {"VALIDATION_CHECK_DISABLE_QUERY_VALIDATION", VALIDATION_CHECK_DISABLE_QUERY_VALIDATION},
     {"VALIDATION_CHECK_DISABLE_IMAGE_LAYOUT_VALIDATION", VALIDATION_CHECK_DISABLE_IMAGE_LAYOUT_VALIDATION},
+    {"VALIDATION_CHECK_DISABLE_VENDOR_SPECIFIC_ARM", VALIDATION_CHECK_DISABLE_VENDOR_SPECIFIC_ARM},
 };
 
 // Set the local disable flag for the appropriate VALIDATION_CHECK_DISABLE enum
@@ -158,6 +159,9 @@ void SetValidationDisable(CHECK_DISABLED* disable_data, const ValidationCheckDis
             break;
         case VALIDATION_CHECK_DISABLE_IMAGE_LAYOUT_VALIDATION:
             disable_data->image_layout_validation = true;
+            break;
+        case VALIDATION_CHECK_DISABLE_VENDOR_SPECIFIC_ARM:
+            disable_data->vendor_specific_arm = true;
             break;
         default:
             assert(true);

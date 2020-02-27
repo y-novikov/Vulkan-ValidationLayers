@@ -267,6 +267,8 @@ class VkBestPracticesLayerTest : public VkLayerTest {
   protected:
 };
 
+class VkArmBestPracticesLayerTest : public VkBestPracticesLayerTest {};
+
 class VkWsiEnabledLayerTest : public VkLayerTest {
   public:
   protected:
