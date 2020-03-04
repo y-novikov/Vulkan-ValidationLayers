@@ -27,7 +27,7 @@ void VkBestPracticesLayerTest::InitBestPracticesFramework() {
     features.pEnabledValidationFeatures = enables;
     features.pDisabledValidationFeatures = disables;
 
-    InitFramework(myDbgFunc, m_errorMonitor, &features);
+    InitFramework(LvtDebugUtilsFunc, m_errorMonitor, &features);
 }
 
 TEST_F(VkBestPracticesLayerTest, UseDeprecatedExtensions) {
