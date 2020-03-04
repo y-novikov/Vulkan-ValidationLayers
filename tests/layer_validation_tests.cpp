@@ -135,12 +135,13 @@ VKAPI_ATTR VkBool32 VKAPI_CALL myDbgFunc(VkFlags msgFlags, VkDebugReportObjectTy
     return VK_FALSE;
 }
 
-VKAPI_ATTR VkBool32 VKAPI_CALL LvtDebugUtilsFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType, uint64_t srcObject,
-                                                 size_t location, int32_t msgCode, const char *pLayerPrefix, const char *pMsg,
-                                                 void *pUserData) {
+VKAPI_ATTR VkBool32 VKAPI_CALL LvtDebugUtilsFunc(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+                                                 VkDebugUtilsMessageTypeFlagsEXT messageTypes,
+                                                 const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData) {
     ErrorMonitor *errMonitor = (ErrorMonitor *)pUserData;
-    if (msgFlags & errMonitor->GetMessageFlags()) {
-        return errMonitor->CheckForDesiredMsg(pMsg);
+    auto msg_flags = DebugAnnotFlagsToMsgTypeFlags(messageSeverity, messageTypes);
+    if (msg_flags & errMonitor->GetMessageFlags()) {
+        return errMonitor->CheckForDesiredMsg(pCallbackData->pMessage);
     }
     return VK_FALSE;
 }
@@ -676,7 +677,7 @@ bool CheckDescriptorIndexingSupportAndInitFramework(VkRenderFramework *renderFra
     if (descriptor_indexing) {
         instance_extension_names.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
     }
-    renderFramework->InitFramework(myDbgFunc, userData, features);
+    renderFramework->InitFramework(LvtDebugUtilsFunc, userData, features);
     descriptor_indexing = descriptor_indexing && renderFramework->DeviceExtensionSupported(renderFramework->gpu(), nullptr,
                                                                                            VK_KHR_MAINTENANCE3_EXTENSION_NAME);
     descriptor_indexing = descriptor_indexing && renderFramework->DeviceExtensionSupported(
@@ -904,7 +905,7 @@ void VkLayerTest::GenericDrawPreparation(VkCommandBufferObj *commandBuffer, VkPi
 
 void VkLayerTest::Init(VkPhysicalDeviceFeatures *features, VkPhysicalDeviceFeatures2 *features2,
                        const VkCommandPoolCreateFlags flags, void *instance_pnext) {
-    InitFramework(myDbgFunc, m_errorMonitor, instance_pnext);
+    InitFramework(LvtDebugUtilsFunc, m_errorMonitor, instance_pnext);
     InitState(features, features2, flags);
 }
 
@@ -919,6 +920,7 @@ VkLayerTest::VkLayerTest() {
 
     // Add default instance extensions to the list
     m_instance_extension_names.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+    m_instance_extension_names.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
     m_instance_layer_names.push_back("VK_LAYER_KHRONOS_validation");
 
