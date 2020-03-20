@@ -136,28 +136,10 @@ script:
     fi
   - |
     if [[ "$VULKAN_BUILD_TARGET" == "LINUX" ]]; then
-      # Build VulkanTools
-      # Note: VulkanTools has a build dependency on Vulkan-ValidationLayers so it must be built after V-VL is built
-      pushd ${TRAVIS_BUILD_DIR}/external/VulkanTools
-      ./update_external_sources.sh
-      mkdir build
-      cd build
-      cmake -DCMAKE_BUILD_TYPE=Debug \
-            -DBUILD_VIA=NO -DBUILD_VKTRACE=NO -DBUILD_VLF=NO -DBUILD_TESTS=NO -DBUILD_LAYERMGR=NO \
-            -DBUILD_VKTRACEVIEWER=NO -DBUILD_VKTRACE_LAYER=NO -DBUILD_VKTRACE_REPLAY=NO \
-            -DVULKAN_HEADERS_INSTALL_DIR=${TRAVIS_BUILD_DIR}/external/Vulkan-Headers/build/install \
-            -DVULKAN_LOADER_INSTALL_DIR=${TRAVIS_BUILD_DIR}/external/Vulkan-Loader/build/install \
-            -DVULKAN_VALIDATIONLAYERS_INSTALL_DIR=${TRAVIS_BUILD_DIR}/build/install \
-            ..
-      cmake --build . -- -j $core_count
-      popd
-    fi
-  - |
-    if [[ "$VULKAN_BUILD_TARGET" == "LINUX" ]]; then
       # Run Tests
       cd ${TRAVIS_BUILD_DIR}
       export LD_LIBRARY_PATH=${TRAVIS_BUILD_DIR}/external/Vulkan-Loader/build/install/lib:${LD_LIBRARY_PATH}
-      export VK_LAYER_PATH=${TRAVIS_BUILD_DIR}/external/VulkanTools/build/layersvt:${TRAVIS_BUILD_DIR}/build/layers
+      export VK_LAYER_PATH=${TRAVIS_BUILD_DIR}/build/tests/layers:${TRAVIS_BUILD_DIR}/build/layers
       export VK_ICD_FILENAMES=${TRAVIS_BUILD_DIR}/external/Vulkan-Tools/build/icd/VkICD_mock_icd.json
       build/tests/vk_layer_validation_tests
       for profile in tests/device_profiles/*.json
