@@ -87,12 +87,17 @@ else(UNIX AND NOT APPLE) # i.e.: Linux
         add_library(VkLayer_${target} SHARED ${ARGN})
         add_dependencies(VkLayer_${target} VkLayer_utils)
         set_target_properties(VkLayer_${target} PROPERTIES LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/libVkLayer_${target}.map,-Bsymbolic")
+        target_include_directories(VkLayer_${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
         target_link_libraries(VkLayer_${target} PRIVATE VkLayer_utils)
         target_compile_options(VkLayer_${target} PRIVATE "-Wpointer-arith" "-Wno-unused-function")
     endmacro()
 endif()
 
 AddVkLayer(device_profile_api device_profile_api.cpp ${PROJECT_SOURCE_DIR}/layers/vk_layer_extension_utils.cpp)
+# This layer is built solely for Travis CI
+if(UNIX AND NOT APPLE)
+    AddVkLayer(device_simulation device_simulation.cpp vk_layer_table.cpp jsoncpp.cpp)
+endif()
 
 # --------------------------------------------------------------------------------------------------------------------------------
 
