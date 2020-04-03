@@ -1902,6 +1902,102 @@ void BarrierQueueFamilyTestHelper::operator()(std::string img_err, std::string b
     context_->Reset();
 };
 
+bool InitFrameworkForRayTracingTest(VkRenderFramework *renderFramework, bool isKHR,
+                                    std::vector<const char *> &instance_extension_names,
+                                    std::vector<const char *> &device_extension_names, void *user_data,
+                                    bool need_gpu_validation, bool need_push_descriptors) {
+    const std::array<const char *, 1> required_instance_extensions = {{VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME}};
+    for (const char *required_instance_extension : required_instance_extensions) {
+        if (renderFramework->InstanceExtensionSupported(required_instance_extension)) {
+            instance_extension_names.push_back(required_instance_extension);
+        } else {
+            printf("%s %s instance extension not supported, skipping test\n", kSkipPrefix, required_instance_extension);
+            return false;
+        }
+    }
+
+    VkValidationFeatureEnableEXT enables[] = {VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT};
+    VkValidationFeatureDisableEXT disables[] = {VK_VALIDATION_FEATURE_DISABLE_ALL_EXT};
+    VkValidationFeaturesEXT features = {};
+    features.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+    features.enabledValidationFeatureCount = 1;
+    features.pEnabledValidationFeatures = enables;
+    features.pDisabledValidationFeatures = disables;
+
+    VkValidationFeaturesEXT *enabled_features = need_gpu_validation ? &features : nullptr;
+
+    renderFramework->InitFramework(user_data, enabled_features);
+
+    if (renderFramework->DeviceIsMockICD() || renderFramework->DeviceSimulation()) {
+        printf("%s Test not supported by MockICD, skipping tests\n", kSkipPrefix);
+        return false;
+    }
+
+    std::vector<const char *> required_device_extensions;
+    required_device_extensions.push_back(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
+    if (isKHR) {
+        required_device_extensions.push_back(VK_KHR_RAY_TRACING_EXTENSION_NAME);
+        required_device_extensions.push_back(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
+        required_device_extensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+        required_device_extensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
+        required_device_extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+        required_device_extensions.push_back(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME);
+    } else {
+        required_device_extensions.push_back(VK_NV_RAY_TRACING_EXTENSION_NAME);
+    }
+    if (need_push_descriptors) {
+        required_device_extensions.push_back(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
+    }
+
+    for (const char *required_device_extension : required_device_extensions) {
+        if (renderFramework->DeviceExtensionSupported(renderFramework->gpu(), nullptr, required_device_extension)) {
+            device_extension_names.push_back(required_device_extension);
+        } else {
+            printf("%s %s device extension not supported, skipping test\n", kSkipPrefix, required_device_extension);
+            return false;
+        }
+    }
+    renderFramework->InitState();
+    return true;
+}
+
+void GetSimpleGeometryForAccelerationStructureTests(const VkDeviceObj &device, VkBufferObj *vbo, VkBufferObj *ibo,
+    VkGeometryNV *geometry) {
+    vbo->init(device, 1024, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        VK_BUFFER_USAGE_RAY_TRACING_BIT_NV);
+    ibo->init(device, 1024, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        VK_BUFFER_USAGE_RAY_TRACING_BIT_NV);
+
+    const std::vector<float> vertices = { 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, -1.0f, 0.0f, 0.0f };
+    const std::vector<uint32_t> indicies = { 0, 1, 2 };
+
+    uint8_t *mapped_vbo_buffer_data = (uint8_t *)vbo->memory().map();
+    std::memcpy(mapped_vbo_buffer_data, (uint8_t *)vertices.data(), sizeof(float) * vertices.size());
+    vbo->memory().unmap();
+
+    uint8_t *mapped_ibo_buffer_data = (uint8_t *)ibo->memory().map();
+    std::memcpy(mapped_ibo_buffer_data, (uint8_t *)indicies.data(), sizeof(uint32_t) * indicies.size());
+    ibo->memory().unmap();
+
+    *geometry = {};
+    geometry->sType = VK_STRUCTURE_TYPE_GEOMETRY_NV;
+    geometry->geometryType = VK_GEOMETRY_TYPE_TRIANGLES_NV;
+    geometry->geometry.triangles.sType = VK_STRUCTURE_TYPE_GEOMETRY_TRIANGLES_NV;
+    geometry->geometry.triangles.vertexData = vbo->handle();
+    geometry->geometry.triangles.vertexOffset = 0;
+    geometry->geometry.triangles.vertexCount = 3;
+    geometry->geometry.triangles.vertexStride = 12;
+    geometry->geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
+    geometry->geometry.triangles.indexData = ibo->handle();
+    geometry->geometry.triangles.indexOffset = 0;
+    geometry->geometry.triangles.indexCount = 3;
+    geometry->geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
+    geometry->geometry.triangles.transformData = VK_NULL_HANDLE;
+    geometry->geometry.triangles.transformOffset = 0;
+    geometry->geometry.aabbs = {};
+    geometry->geometry.aabbs.sType = VK_STRUCTURE_TYPE_GEOMETRY_AABB_NV;
+}
+
 void print_android(const char *c) {
 #ifdef VK_USE_PLATFORM_ANDROID_KHR
     __android_log_print(ANDROID_LOG_INFO, "VulkanLayerValidationTests", "%s", c);

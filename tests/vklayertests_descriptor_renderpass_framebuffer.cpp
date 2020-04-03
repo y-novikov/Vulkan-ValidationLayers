@@ -27,694 +27,23 @@
 #include "cast_utils.h"
 #include "layer_validation_tests.h"
 
-TEST_F(VkLayerTest, GpuValidationArrayOOBGraphicsShaders) {
-    TEST_DESCRIPTION(
-        "GPU validation: Verify detection of out-of-bounds descriptor array indexing and use of uninitialized descriptors.");
-
-    VkValidationFeatureEnableEXT enables[] = {VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT};
-    VkValidationFeaturesEXT features = {};
-    features.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
-    features.enabledValidationFeatureCount = 1;
-    features.pEnabledValidationFeatures = enables;
-    bool descriptor_indexing = CheckDescriptorIndexingSupportAndInitFramework(this, m_instance_extension_names,
-                                                                              m_device_extension_names, &features, m_errorMonitor);
-    if (DeviceIsMockICD() || DeviceSimulation()) {
-        printf("%s GPU-Assisted validation test requires a driver that can draw.\n", kSkipPrefix);
-        return;
-    }
-
-    VkPhysicalDeviceFeatures2KHR features2 = {};
-    auto indexing_features = lvl_init_struct<VkPhysicalDeviceDescriptorIndexingFeaturesEXT>();
-    if (descriptor_indexing) {
-        PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR =
-            (PFN_vkGetPhysicalDeviceFeatures2KHR)vk::GetInstanceProcAddr(instance(), "vkGetPhysicalDeviceFeatures2KHR");
-        ASSERT_TRUE(vkGetPhysicalDeviceFeatures2KHR != nullptr);
-
-        features2 = lvl_init_struct<VkPhysicalDeviceFeatures2KHR>(&indexing_features);
-        vkGetPhysicalDeviceFeatures2KHR(gpu(), &features2);
-
-        if (!indexing_features.runtimeDescriptorArray || !indexing_features.descriptorBindingSampledImageUpdateAfterBind ||
-            !indexing_features.descriptorBindingPartiallyBound || !indexing_features.descriptorBindingVariableDescriptorCount ||
-            !indexing_features.shaderSampledImageArrayNonUniformIndexing ||
-            !indexing_features.shaderStorageBufferArrayNonUniformIndexing) {
-            printf("Not all descriptor indexing features supported, skipping descriptor indexing tests\n");
-            descriptor_indexing = false;
-        }
-    }
-
-    VkCommandPoolCreateFlags pool_flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    ASSERT_NO_FATAL_FAILURE(InitState(nullptr, &features2, pool_flags));
-    if (m_device->props.apiVersion < VK_API_VERSION_1_1) {
-        printf("%s GPU-Assisted validation test requires Vulkan 1.1+.\n", kSkipPrefix);
-        return;
-    }
-    ASSERT_NO_FATAL_FAILURE(InitViewport());
-    ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
-
-    // Make a uniform buffer to be passed to the shader that contains the invalid array index.
-    uint32_t qfi = 0;
-    VkBufferCreateInfo bci = {};
-    bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bci.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    bci.size = 1024;
-    bci.queueFamilyIndexCount = 1;
-    bci.pQueueFamilyIndices = &qfi;
-    VkBufferObj buffer0;
-    VkMemoryPropertyFlags mem_props = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    buffer0.init(*m_device, bci, mem_props);
-
-    bci.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-    // Make another buffer to populate the buffer array to be indexed
-    VkBufferObj buffer1;
-    buffer1.init(*m_device, bci, mem_props);
-
-    void *layout_pnext = nullptr;
-    void *allocate_pnext = nullptr;
-    auto pool_create_flags = 0;
-    auto layout_create_flags = 0;
-    VkDescriptorBindingFlagsEXT ds_binding_flags[2] = {};
-    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT layout_createinfo_binding_flags[1] = {};
-    if (descriptor_indexing) {
-        ds_binding_flags[0] = 0;
-        ds_binding_flags[1] = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT;
-
-        layout_createinfo_binding_flags[0].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
-        layout_createinfo_binding_flags[0].pNext = NULL;
-        layout_createinfo_binding_flags[0].bindingCount = 2;
-        layout_createinfo_binding_flags[0].pBindingFlags = ds_binding_flags;
-        layout_create_flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT;
-        pool_create_flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT;
-        layout_pnext = layout_createinfo_binding_flags;
-    }
-
-    // Prepare descriptors
-    OneOffDescriptorSet descriptor_set(m_device,
-                                       {
-                                           {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, nullptr},
-                                           {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6, VK_SHADER_STAGE_ALL, nullptr},
-                                       },
-                                       layout_create_flags, layout_pnext, pool_create_flags);
-
-    VkDescriptorSetVariableDescriptorCountAllocateInfoEXT variable_count = {};
-    uint32_t desc_counts;
-    if (descriptor_indexing) {
-        layout_create_flags = 0;
-        pool_create_flags = 0;
-        ds_binding_flags[1] =
-            VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT;
-        desc_counts = 6;  // We'll reserve 8 spaces in the layout, but the descriptor will only use 6
-        variable_count.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT;
-        variable_count.descriptorSetCount = 1;
-        variable_count.pDescriptorCounts = &desc_counts;
-        allocate_pnext = &variable_count;
-    }
-
-    OneOffDescriptorSet descriptor_set_variable(m_device,
-                                                {
-                                                    {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, nullptr},
-                                                    {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 8, VK_SHADER_STAGE_ALL, nullptr},
-                                                },
-                                                layout_create_flags, layout_pnext, pool_create_flags, allocate_pnext);
-
-    const VkPipelineLayoutObj pipeline_layout(m_device, {&descriptor_set.layout_});
-    const VkPipelineLayoutObj pipeline_layout_variable(m_device, {&descriptor_set_variable.layout_});
-    VkTextureObj texture(m_device, nullptr);
-    VkSamplerObj sampler(m_device);
-
-    VkDescriptorBufferInfo buffer_info[1] = {};
-    buffer_info[0].buffer = buffer0.handle();
-    buffer_info[0].offset = 0;
-    buffer_info[0].range = sizeof(uint32_t);
-
-    VkDescriptorImageInfo image_info[6] = {};
-    for (int i = 0; i < 6; i++) {
-        image_info[i] = texture.DescriptorImageInfo();
-        image_info[i].sampler = sampler.handle();
-        image_info[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    }
-
-    VkWriteDescriptorSet descriptor_writes[2] = {};
-    descriptor_writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptor_writes[0].dstSet = descriptor_set.set_;  // descriptor_set;
-    descriptor_writes[0].dstBinding = 0;
-    descriptor_writes[0].descriptorCount = 1;
-    descriptor_writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptor_writes[0].pBufferInfo = buffer_info;
-    descriptor_writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptor_writes[1].dstSet = descriptor_set.set_;  // descriptor_set;
-    descriptor_writes[1].dstBinding = 1;
-    if (descriptor_indexing)
-        descriptor_writes[1].descriptorCount = 5;  // Intentionally don't write index 5
-    else
-        descriptor_writes[1].descriptorCount = 6;
-    descriptor_writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptor_writes[1].pImageInfo = image_info;
-    vk::UpdateDescriptorSets(m_device->device(), 2, descriptor_writes, 0, NULL);
-    if (descriptor_indexing) {
-        descriptor_writes[0].dstSet = descriptor_set_variable.set_;
-        descriptor_writes[1].dstSet = descriptor_set_variable.set_;
-        vk::UpdateDescriptorSets(m_device->device(), 2, descriptor_writes, 0, NULL);
-    }
-
-    ds_binding_flags[0] = 0;
-    ds_binding_flags[1] = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT;
-
-    // Resources for buffer tests
-    OneOffDescriptorSet descriptor_set_buffer(m_device,
-                                              {
-                                                  {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, nullptr},
-                                                  {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 6, VK_SHADER_STAGE_ALL, nullptr},
-                                              },
-                                              0, layout_pnext, 0);
-
-    const VkPipelineLayoutObj pipeline_layout_buffer(m_device, {&descriptor_set_buffer.layout_});
-
-    VkDescriptorBufferInfo buffer_test_buffer_info[7] = {};
-    buffer_test_buffer_info[0].buffer = buffer0.handle();
-    buffer_test_buffer_info[0].offset = 0;
-    buffer_test_buffer_info[0].range = sizeof(uint32_t);
-
-    for (int i = 1; i < 7; i++) {
-        buffer_test_buffer_info[i].buffer = buffer1.handle();
-        buffer_test_buffer_info[i].offset = 0;
-        buffer_test_buffer_info[i].range = 4 * sizeof(float);
-    }
-
-    if (descriptor_indexing) {
-        VkWriteDescriptorSet buffer_descriptor_writes[2] = {};
-        buffer_descriptor_writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        buffer_descriptor_writes[0].dstSet = descriptor_set_buffer.set_;  // descriptor_set;
-        buffer_descriptor_writes[0].dstBinding = 0;
-        buffer_descriptor_writes[0].descriptorCount = 1;
-        buffer_descriptor_writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        buffer_descriptor_writes[0].pBufferInfo = buffer_test_buffer_info;
-        buffer_descriptor_writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        buffer_descriptor_writes[1].dstSet = descriptor_set_buffer.set_;  // descriptor_set;
-        buffer_descriptor_writes[1].dstBinding = 1;
-        buffer_descriptor_writes[1].descriptorCount = 5;  // Intentionally don't write index 5
-        buffer_descriptor_writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        buffer_descriptor_writes[1].pBufferInfo = &buffer_test_buffer_info[1];
-        vk::UpdateDescriptorSets(m_device->device(), 2, buffer_descriptor_writes, 0, NULL);
-    }
-
-    // Shader programs for array OOB test in vertex stage:
-    // - The vertex shader fetches the invalid index from the uniform buffer and uses it to make an invalid index into another
-    // array.
-    char const *vsSource_vert =
-        "#version 450\n"
-        "\n"
-        "layout(std140, set = 0, binding = 0) uniform foo { uint tex_index[1]; } uniform_index_buffer;\n"
-        "layout(set = 0, binding = 1) uniform sampler2D tex[6];\n"
-        "vec2 vertices[3];\n"
-        "void main(){\n"
-        "      vertices[0] = vec2(-1.0, -1.0);\n"
-        "      vertices[1] = vec2( 1.0, -1.0);\n"
-        "      vertices[2] = vec2( 0.0,  1.0);\n"
-        "   gl_Position = vec4(vertices[gl_VertexIndex % 3], 0.0, 1.0);\n"
-        "   gl_Position += 1e-30 * texture(tex[uniform_index_buffer.tex_index[0]], vec2(0, 0));\n"
-        "}\n";
-    char const *fsSource_vert =
-        "#version 450\n"
-        "\n"
-        "layout(set = 0, binding = 1) uniform sampler2D tex[6];\n"
-        "layout(location = 0) out vec4 uFragColor;\n"
-        "void main(){\n"
-        "   uFragColor = texture(tex[0], vec2(0, 0));\n"
-        "}\n";
-
-    // Shader programs for array OOB test in fragment stage:
-    // - The vertex shader fetches the invalid index from the uniform buffer and passes it to the fragment shader.
-    // - The fragment shader makes the invalid array access.
-    char const *vsSource_frag =
-        "#version 450\n"
-        "\n"
-        "layout(std140, binding = 0) uniform foo { uint tex_index[1]; } uniform_index_buffer;\n"
-        "layout(location = 0) out flat uint index;\n"
-        "vec2 vertices[3];\n"
-        "void main(){\n"
-        "      vertices[0] = vec2(-1.0, -1.0);\n"
-        "      vertices[1] = vec2( 1.0, -1.0);\n"
-        "      vertices[2] = vec2( 0.0,  1.0);\n"
-        "   gl_Position = vec4(vertices[gl_VertexIndex % 3], 0.0, 1.0);\n"
-        "   index = uniform_index_buffer.tex_index[0];\n"
-        "}\n";
-    char const *fsSource_frag =
-        "#version 450\n"
-        "\n"
-        "layout(set = 0, binding = 1) uniform sampler2D tex[6];\n"
-        "layout(location = 0) out vec4 uFragColor;\n"
-        "layout(location = 0) in flat uint index;\n"
-        "void main(){\n"
-        "   uFragColor = texture(tex[index], vec2(0, 0));\n"
-        "}\n";
-    char const *fsSource_frag_runtime =
-        "#version 450\n"
-        "#extension GL_EXT_nonuniform_qualifier : enable\n"
-        "\n"
-        "layout(set = 0, binding = 1) uniform sampler2D tex[];\n"
-        "layout(location = 0) out vec4 uFragColor;\n"
-        "layout(location = 0) in flat uint index;\n"
-        "void main(){\n"
-        "   uFragColor = texture(tex[index], vec2(0, 0));\n"
-        "}\n";
-    char const *fsSource_buffer =
-        "#version 450\n"
-        "#extension GL_EXT_nonuniform_qualifier : enable\n "
-        "\n"
-        "layout(set = 0, binding = 1) buffer foo { vec4 val; } colors[];\n"
-        "layout(location = 0) out vec4 uFragColor;\n"
-        "layout(location = 0) in flat uint index;\n"
-        "void main(){\n"
-        "   uFragColor = colors[index].val;\n"
-        "}\n";
-    char const *gsSource =
-        "#version 450\n"
-        "#extension GL_EXT_nonuniform_qualifier : enable\n "
-        "layout(triangles) in;\n"
-        "layout(triangle_strip, max_vertices=3) out;\n"
-        "layout(location=0) in VertexData { vec4 x; } gs_in[];\n"
-        "layout(std140, set = 0, binding = 0) uniform ufoo { uint index; } uniform_index_buffer;\n"
-        "layout(set = 0, binding = 1) buffer bfoo { vec4 val; } adds[];\n"
-        "void main() {\n"
-        "   gl_Position = gs_in[0].x + adds[uniform_index_buffer.index].val.x;\n"
-        "   EmitVertex();\n"
-        "}\n";
-    static const char *tesSource =
-        "#version 450\n"
-        "#extension GL_EXT_nonuniform_qualifier : enable\n "
-        "layout(std140, set = 0, binding = 0) uniform ufoo { uint index; } uniform_index_buffer;\n"
-        "layout(set = 0, binding = 1) buffer bfoo { vec4 val; } adds[];\n"
-        "layout(triangles, equal_spacing, cw) in;\n"
-        "void main() {\n"
-        "    gl_Position = adds[uniform_index_buffer.index].val;\n"
-        "}\n";
-
-    struct TestCase {
-        char const *vertex_source;
-        char const *fragment_source;
-        char const *geometry_source;
-        char const *tess_ctrl_source;
-        char const *tess_eval_source;
-        bool debug;
-        const VkPipelineLayoutObj *pipeline_layout;
-        const OneOffDescriptorSet *descriptor_set;
-        uint32_t index;
-        char const *expected_error;
-    };
-
-    std::vector<TestCase> tests;
-    tests.push_back({vsSource_vert, fsSource_vert, nullptr, nullptr, nullptr, false, &pipeline_layout, &descriptor_set, 25,
-                     "Index of 25 used to index descriptor array of length 6."});
-    tests.push_back({vsSource_frag, fsSource_frag, nullptr, nullptr, nullptr, false, &pipeline_layout, &descriptor_set, 25,
-                     "Index of 25 used to index descriptor array of length 6."});
-#if !defined(ANDROID)
-    // The Android test framework uses shaderc for online compilations.  Even when configured to compile with debug info,
-    // shaderc seems to drop the OpLine instructions from the shader binary.  This causes the following two tests to fail
-    // on Android platforms.  Skip these tests until the shaderc issue is understood/resolved.
-    tests.push_back({vsSource_vert, fsSource_vert, nullptr, nullptr, nullptr, true, &pipeline_layout, &descriptor_set, 25,
-                     "gl_Position += 1e-30 * texture(tex[uniform_index_buffer.tex_index[0]], vec2(0, 0));"});
-    tests.push_back({vsSource_frag, fsSource_frag, nullptr, nullptr, nullptr, true, &pipeline_layout, &descriptor_set, 25,
-                     "uFragColor = texture(tex[index], vec2(0, 0));"});
-#endif
-    if (descriptor_indexing) {
-        tests.push_back({vsSource_frag, fsSource_frag_runtime, nullptr, nullptr, nullptr, false, &pipeline_layout, &descriptor_set,
-                         25, "Index of 25 used to index descriptor array of length 6."});
-        tests.push_back({vsSource_frag, fsSource_frag_runtime, nullptr, nullptr, nullptr, false, &pipeline_layout, &descriptor_set,
-                         5, "Descriptor index 5 is uninitialized"});
-        // Pick 6 below because it is less than the maximum specified, but more than the actual specified
-        tests.push_back({vsSource_frag, fsSource_frag_runtime, nullptr, nullptr, nullptr, false, &pipeline_layout_variable,
-                         &descriptor_set_variable, 6, "Index of 6 used to index descriptor array of length 6."});
-        tests.push_back({vsSource_frag, fsSource_frag_runtime, nullptr, nullptr, nullptr, false, &pipeline_layout_variable,
-                         &descriptor_set_variable, 5, "Descriptor index 5 is uninitialized"});
-        tests.push_back({vsSource_frag, fsSource_buffer, nullptr, nullptr, nullptr, false, &pipeline_layout_buffer,
-                         &descriptor_set_buffer, 25, "Index of 25 used to index descriptor array of length 6."});
-        tests.push_back({vsSource_frag, fsSource_buffer, nullptr, nullptr, nullptr, false, &pipeline_layout_buffer,
-                         &descriptor_set_buffer, 5, "Descriptor index 5 is uninitialized"});
-        if (m_device->phy().features().geometryShader) {
-            // OOB Geometry
-            tests.push_back({bindStateVertShaderText, bindStateFragShaderText, gsSource, nullptr, nullptr, false,
-                             &pipeline_layout_buffer, &descriptor_set_buffer, 25, "Stage = Geometry"});
-            // Uninitialized Geometry
-            tests.push_back({bindStateVertShaderText, bindStateFragShaderText, gsSource, nullptr, nullptr, false,
-                             &pipeline_layout_buffer, &descriptor_set_buffer, 5, "Stage = Geometry"});
-        }
-        if (m_device->phy().features().tessellationShader) {
-            tests.push_back({bindStateVertShaderText, bindStateFragShaderText, nullptr, bindStateTscShaderText, tesSource, false,
-                             &pipeline_layout_buffer, &descriptor_set_buffer, 25, "Stage = Tessellation Eval"});
-            tests.push_back({bindStateVertShaderText, bindStateFragShaderText, nullptr, bindStateTscShaderText, tesSource, false,
-                             &pipeline_layout_buffer, &descriptor_set_buffer, 5, "Stage = Tessellation Eval"});
-        }
-    }
-
-    VkViewport viewport = m_viewports[0];
-    VkRect2D scissors = m_scissors[0];
-
-    VkSubmitInfo submit_info = {};
-    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &m_commandBuffer->handle();
-
-    for (const auto &iter : tests) {
-        VkResult err;
-        m_errorMonitor->SetDesiredFailureMsg(kErrorBit, iter.expected_error);
-        VkShaderObj vs(m_device, iter.vertex_source, VK_SHADER_STAGE_VERTEX_BIT, this, "main", iter.debug);
-        VkShaderObj fs(m_device, iter.fragment_source, VK_SHADER_STAGE_FRAGMENT_BIT, this, "main", iter.debug);
-        VkShaderObj *gs = nullptr;
-        VkShaderObj *tcs = nullptr;
-        VkShaderObj *tes = nullptr;
-        VkPipelineObj pipe(m_device);
-        pipe.AddShader(&vs);
-        pipe.AddShader(&fs);
-        if (iter.geometry_source) {
-            gs = new VkShaderObj(m_device, iter.geometry_source, VK_SHADER_STAGE_GEOMETRY_BIT, this, "main", iter.debug);
-            pipe.AddShader(gs);
-        }
-        if (iter.tess_ctrl_source && iter.tess_eval_source) {
-            tcs = new VkShaderObj(m_device, iter.tess_ctrl_source, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, this, "main",
-                                  iter.debug);
-            tes = new VkShaderObj(m_device, iter.tess_eval_source, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, this, "main",
-                                  iter.debug);
-            pipe.AddShader(tcs);
-            pipe.AddShader(tes);
-            VkPipelineInputAssemblyStateCreateInfo iasci{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO, nullptr, 0,
-                                                         VK_PRIMITIVE_TOPOLOGY_PATCH_LIST, VK_FALSE};
-            VkPipelineTessellationDomainOriginStateCreateInfo tessellationDomainOriginStateInfo = {
-                VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_DOMAIN_ORIGIN_STATE_CREATE_INFO, VK_NULL_HANDLE,
-                VK_TESSELLATION_DOMAIN_ORIGIN_UPPER_LEFT};
-
-            VkPipelineTessellationStateCreateInfo tsci{VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,
-                                                       &tessellationDomainOriginStateInfo, 0, 3};
-            pipe.SetTessellation(&tsci);
-            pipe.SetInputAssembly(&iasci);
-        }
-        pipe.AddDefaultColorAttachment();
-        err = pipe.CreateVKPipeline(iter.pipeline_layout->handle(), renderPass());
-        ASSERT_VK_SUCCESS(err);
-        m_commandBuffer->begin();
-        m_commandBuffer->BeginRenderPass(m_renderPassBeginInfo);
-        vk::CmdBindPipeline(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.handle());
-        vk::CmdBindDescriptorSets(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, iter.pipeline_layout->handle(), 0, 1,
-                                  &iter.descriptor_set->set_, 0, nullptr);
-        vk::CmdSetViewport(m_commandBuffer->handle(), 0, 1, &viewport);
-        vk::CmdSetScissor(m_commandBuffer->handle(), 0, 1, &scissors);
-        vk::CmdDraw(m_commandBuffer->handle(), 3, 1, 0, 0);
-        vk::CmdEndRenderPass(m_commandBuffer->handle());
-        m_commandBuffer->end();
-        uint32_t *data = (uint32_t *)buffer0.memory().map();
-        data[0] = iter.index;
-        buffer0.memory().unmap();
-
-        vk::QueueSubmit(m_device->m_queue, 1, &submit_info, VK_NULL_HANDLE);
-        vk::QueueWaitIdle(m_device->m_queue);
-        m_errorMonitor->VerifyFound();
-        if (gs) {
-            delete gs;
-        }
-        if (tcs && tes) {
-            delete tcs;
-            delete tes;
-        }
-    }
-    auto c_queue = m_device->GetDefaultComputeQueue();
-    if (c_queue && descriptor_indexing) {
-        char const *csSource =
-            "#version 450\n"
-            "#extension GL_EXT_nonuniform_qualifier : enable\n "
-            "layout(set = 0, binding = 0) uniform ufoo { uint index; } u_index;"
-            "layout(set = 0, binding = 1) buffer StorageBuffer {\n"
-            "    uint data;\n"
-            "} Data[];\n"
-            "void main() {\n"
-            "   Data[(u_index.index - 1)].data = Data[u_index.index].data;\n"
-            "}\n";
-
-        auto shader_module = new VkShaderObj(m_device, csSource, VK_SHADER_STAGE_COMPUTE_BIT, this);
-
-        VkPipelineShaderStageCreateInfo stage;
-        stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        stage.pNext = nullptr;
-        stage.flags = 0;
-        stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-        stage.module = shader_module->handle();
-        stage.pName = "main";
-        stage.pSpecializationInfo = nullptr;
-
-        // CreateComputePipelines
-        VkComputePipelineCreateInfo pipeline_info = {};
-        pipeline_info.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-        pipeline_info.pNext = nullptr;
-        pipeline_info.flags = 0;
-        pipeline_info.layout = pipeline_layout_buffer.handle();
-        pipeline_info.basePipelineHandle = VK_NULL_HANDLE;
-        pipeline_info.basePipelineIndex = -1;
-        pipeline_info.stage = stage;
-
-        VkPipeline c_pipeline;
-        vk::CreateComputePipelines(device(), VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &c_pipeline);
-        VkCommandBufferBeginInfo begin_info = {};
-        VkCommandBufferInheritanceInfo hinfo = {};
-        hinfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
-        begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        begin_info.pInheritanceInfo = &hinfo;
-
-        m_commandBuffer->begin(&begin_info);
-        vk::CmdBindPipeline(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_COMPUTE, c_pipeline);
-        vk::CmdBindDescriptorSets(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout_buffer.handle(), 0, 1,
-                                  &descriptor_set_buffer.set_, 0, nullptr);
-        vk::CmdDispatch(m_commandBuffer->handle(), 1, 1, 1);
-        m_commandBuffer->end();
-
-        // Uninitialized
-        uint32_t *data = (uint32_t *)buffer0.memory().map();
-        data[0] = 5;
-        buffer0.memory().unmap();
-        m_errorMonitor->SetDesiredFailureMsg(kErrorBit, "Stage = Compute");
-        vk::QueueSubmit(c_queue->handle(), 1, &submit_info, VK_NULL_HANDLE);
-        vk::QueueWaitIdle(m_device->m_queue);
-        m_errorMonitor->VerifyFound();
-        // Out of Bounds
-        data = (uint32_t *)buffer0.memory().map();
-        data[0] = 25;
-        buffer0.memory().unmap();
-        m_errorMonitor->SetDesiredFailureMsg(kErrorBit, "Stage = Compute");
-        vk::QueueSubmit(c_queue->handle(), 1, &submit_info, VK_NULL_HANDLE);
-        vk::QueueWaitIdle(m_device->m_queue);
-        m_errorMonitor->VerifyFound();
-        vk::DestroyPipeline(m_device->handle(), c_pipeline, NULL);
-        vk::DestroyShaderModule(m_device->handle(), shader_module->handle(), NULL);
-    }
-    return;
-}
-
-TEST_F(VkLayerTest, GpuBufferDeviceAddressOOB) {
-    bool supported = InstanceExtensionSupported(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-    m_instance_extension_names.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-
-    VkValidationFeatureEnableEXT enables[] = {VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT};
-    VkValidationFeaturesEXT features = {};
-    features.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
-    features.enabledValidationFeatureCount = 1;
-    features.pEnabledValidationFeatures = enables;
-    InitFramework(m_errorMonitor, &features);
-
-    if (DeviceIsMockICD() || DeviceSimulation()) {
-        printf("%s GPU-Assisted validation test requires a driver that can draw.\n", kSkipPrefix);
-        return;
-    }
-
-    supported = supported && DeviceExtensionSupported(gpu(), nullptr, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
-    m_device_extension_names.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
-
-    VkPhysicalDeviceFeatures2KHR features2 = {};
-    auto bda_features = lvl_init_struct<VkPhysicalDeviceBufferDeviceAddressFeaturesKHR>();
-    PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR =
-        (PFN_vkGetPhysicalDeviceFeatures2KHR)vk::GetInstanceProcAddr(instance(), "vkGetPhysicalDeviceFeatures2KHR");
-    ASSERT_TRUE(vkGetPhysicalDeviceFeatures2KHR != nullptr);
-
-    features2 = lvl_init_struct<VkPhysicalDeviceFeatures2KHR>(&bda_features);
-    vkGetPhysicalDeviceFeatures2KHR(gpu(), &features2);
-    supported = supported && bda_features.bufferDeviceAddress;
-
-    if (!supported) {
-        printf("%s Buffer Device Address feature not supported, skipping test\n", kSkipPrefix);
-        return;
-    }
-    VkCommandPoolCreateFlags pool_flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    ASSERT_NO_FATAL_FAILURE(InitState(nullptr, &features2, pool_flags));
-    if (m_device->props.apiVersion < VK_API_VERSION_1_1) {
-        printf("%s GPU-Assisted validation test requires Vulkan 1.1+.\n", kSkipPrefix);
-        return;
-    }
-    ASSERT_NO_FATAL_FAILURE(InitViewport());
-    ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
-
-    // Make a uniform buffer to be passed to the shader that contains the pointer and write count
-    uint32_t qfi = 0;
-    VkBufferCreateInfo bci = {};
-    bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bci.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    bci.size = 8;
-    bci.queueFamilyIndexCount = 1;
-    bci.pQueueFamilyIndices = &qfi;
-    VkBufferObj buffer0;
-    VkMemoryPropertyFlags mem_props = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    buffer0.init(*m_device, bci, mem_props);
-
-    // Make another buffer to write to
-    bci.usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_KHR;
-    bci.size = 64;  // Buffer should be 16*4 = 64 bytes
-    VkBuffer buffer1;
-    vk::CreateBuffer(device(), &bci, NULL, &buffer1);
-    VkMemoryRequirements buffer_mem_reqs = {};
-    vk::GetBufferMemoryRequirements(device(), buffer1, &buffer_mem_reqs);
-    VkMemoryAllocateInfo buffer_alloc_info = {};
-    buffer_alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    buffer_alloc_info.allocationSize = buffer_mem_reqs.size;
-    m_device->phy().set_memory_type(buffer_mem_reqs.memoryTypeBits, &buffer_alloc_info, 0);
-    VkMemoryAllocateFlagsInfo alloc_flags = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO};
-    alloc_flags.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
-    buffer_alloc_info.pNext = &alloc_flags;
-    VkDeviceMemory buffer_mem;
-    VkResult err = vk::AllocateMemory(device(), &buffer_alloc_info, NULL, &buffer_mem);
-    ASSERT_VK_SUCCESS(err);
-    vk::BindBufferMemory(m_device->device(), buffer1, buffer_mem, 0);
-
-    // Get device address of buffer to write to
-    VkBufferDeviceAddressInfoKHR bda_info = {};
-    bda_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR;
-    bda_info.buffer = buffer1;
-    auto vkGetBufferDeviceAddressKHR =
-        (PFN_vkGetBufferDeviceAddressKHR)vk::GetDeviceProcAddr(m_device->device(), "vkGetBufferDeviceAddressKHR");
-    ASSERT_TRUE(vkGetBufferDeviceAddressKHR != nullptr);
-    auto pBuffer = vkGetBufferDeviceAddressKHR(m_device->device(), &bda_info);
-
-    OneOffDescriptorSet descriptor_set(m_device, {{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, nullptr}});
-
-    const VkPipelineLayoutObj pipeline_layout(m_device, {&descriptor_set.layout_});
-    VkDescriptorBufferInfo buffer_test_buffer_info[2] = {};
-    buffer_test_buffer_info[0].buffer = buffer0.handle();
-    buffer_test_buffer_info[0].offset = 0;
-    buffer_test_buffer_info[0].range = sizeof(uint32_t);
-
-    VkWriteDescriptorSet descriptor_writes[1] = {};
-    descriptor_writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptor_writes[0].dstSet = descriptor_set.set_;
-    descriptor_writes[0].dstBinding = 0;
-    descriptor_writes[0].descriptorCount = 1;
-    descriptor_writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptor_writes[0].pBufferInfo = buffer_test_buffer_info;
-    vk::UpdateDescriptorSets(m_device->device(), 1, descriptor_writes, 0, NULL);
-
-    char const *shader_source =
-        "#version 450\n"
-        "#extension GL_EXT_buffer_reference : enable\n "
-        "layout(buffer_reference, buffer_reference_align = 16) buffer bufStruct;\n"
-        "layout(set = 0, binding = 0) uniform ufoo {\n"
-        "    bufStruct data;\n"
-        "    int nWrites;\n"
-        "} u_info;\n"
-        "layout(buffer_reference, std140) buffer bufStruct {\n"
-        "    int a[4];\n"
-        "};\n"
-        "void main() {\n"
-        "    for (int i=0; i < u_info.nWrites; ++i) {\n"
-        "        u_info.data.a[i] = 0xdeadca71;\n"
-        "    }\n"
-        "}\n";
-    VkShaderObj vs(m_device, shader_source, VK_SHADER_STAGE_VERTEX_BIT, this, "main", true);
-
-    VkViewport viewport = m_viewports[0];
-    VkRect2D scissors = m_scissors[0];
-
-    VkSubmitInfo submit_info = {};
-    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &m_commandBuffer->handle();
-
-    VkPipelineObj pipe(m_device);
-    pipe.AddShader(&vs);
-    pipe.AddDefaultColorAttachment();
-    err = pipe.CreateVKPipeline(pipeline_layout.handle(), renderPass());
-    ASSERT_VK_SUCCESS(err);
-
-    VkCommandBufferBeginInfo begin_info = {};
-    VkCommandBufferInheritanceInfo hinfo = {};
-    hinfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
-    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    begin_info.pInheritanceInfo = &hinfo;
-
-    m_commandBuffer->begin(&begin_info);
-    m_commandBuffer->BeginRenderPass(m_renderPassBeginInfo);
-    vk::CmdBindPipeline(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.handle());
-    vk::CmdBindDescriptorSets(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout.handle(), 0, 1,
-                              &descriptor_set.set_, 0, nullptr);
-    vk::CmdSetViewport(m_commandBuffer->handle(), 0, 1, &viewport);
-    vk::CmdSetScissor(m_commandBuffer->handle(), 0, 1, &scissors);
-    vk::CmdDraw(m_commandBuffer->handle(), 3, 1, 0, 0);
-    vk::CmdEndRenderPass(m_commandBuffer->handle());
-    m_commandBuffer->end();
-
-    // Starting address too low
-    VkDeviceAddress *data = (VkDeviceAddress *)buffer0.memory().map();
-    data[0] = pBuffer - 16;
-    data[1] = 4;
-    buffer0.memory().unmap();
-    m_errorMonitor->SetDesiredFailureMsg(kErrorBit, "access out of bounds");
-    err = vk::QueueSubmit(m_device->m_queue, 1, &submit_info, VK_NULL_HANDLE);
-    ASSERT_VK_SUCCESS(err);
-    err = vk::QueueWaitIdle(m_device->m_queue);
-    ASSERT_VK_SUCCESS(err);
-    m_errorMonitor->VerifyFound();
-
-    // Run past the end
-    data = (VkDeviceAddress *)buffer0.memory().map();
-    data[0] = pBuffer;
-    data[1] = 5;
-    buffer0.memory().unmap();
-    m_errorMonitor->SetDesiredFailureMsg(kErrorBit, "access out of bounds");
-    err = vk::QueueSubmit(m_device->m_queue, 1, &submit_info, VK_NULL_HANDLE);
-    ASSERT_VK_SUCCESS(err);
-    err = vk::QueueWaitIdle(m_device->m_queue);
-    ASSERT_VK_SUCCESS(err);
-    m_errorMonitor->VerifyFound();
-
-    // Positive test - stay inside buffer
-    m_errorMonitor->ExpectSuccess();
-    data = (VkDeviceAddress *)buffer0.memory().map();
-    data[0] = pBuffer;
-    data[1] = 4;
-    buffer0.memory().unmap();
-    err = vk::QueueSubmit(m_device->m_queue, 1, &submit_info, VK_NULL_HANDLE);
-    ASSERT_VK_SUCCESS(err);
-    err = vk::QueueWaitIdle(m_device->m_queue);
-    ASSERT_VK_SUCCESS(err);
-    m_errorMonitor->VerifyNotFound();
-    vk::DestroyBuffer(m_device->handle(), buffer1, NULL);
-    vk::FreeMemory(m_device->handle(), buffer_mem, NULL);
-}
-
 TEST_F(VkLayerTest, GpuValidationArrayOOBRayTracingShaders) {
     TEST_DESCRIPTION(
         "GPU validation: Verify detection of out-of-bounds descriptor array indexing and use of uninitialized descriptors for "
         "ray tracing shaders.");
 
-    std::array<const char *, 1> required_instance_extensions = {{VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME}};
+    std::array<const char *, 1> required_instance_extensions = { {VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME} };
     for (auto instance_extension : required_instance_extensions) {
         if (InstanceExtensionSupported(instance_extension)) {
             m_instance_extension_names.push_back(instance_extension);
-        } else {
+        }
+        else {
             printf("%s Did not find required instance extension %s; skipped.\n", kSkipPrefix, instance_extension);
             return;
         }
     }
 
-    VkValidationFeatureEnableEXT validation_feature_enables[] = {VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT};
-    VkValidationFeaturesEXT validation_features = {};
-    validation_features.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
-    validation_features.enabledValidationFeatureCount = 1;
-    validation_features.pEnabledValidationFeatures = validation_feature_enables;
-    bool descriptor_indexing = CheckDescriptorIndexingSupportAndInitFramework(
-        this, m_instance_extension_names, m_device_extension_names, &validation_features, m_errorMonitor);
+    bool descriptor_indexing = InitGpuAssistedFramework(true);
 
     if (DeviceIsMockICD() || DeviceSimulation()) {
         printf("%s Test not supported by MockICD, skipping tests\n", kSkipPrefix);
@@ -722,11 +51,12 @@ TEST_F(VkLayerTest, GpuValidationArrayOOBRayTracingShaders) {
     }
 
     std::array<const char *, 2> required_device_extensions = {
-        {VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME, VK_NV_RAY_TRACING_EXTENSION_NAME}};
+        {VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME, VK_NV_RAY_TRACING_EXTENSION_NAME} };
     for (auto device_extension : required_device_extensions) {
         if (DeviceExtensionSupported(gpu(), nullptr, device_extension)) {
             m_device_extension_names.push_back(device_extension);
-        } else {
+        }
+        else {
             printf("%s %s Extension not supported, skipping tests\n", kSkipPrefix, device_extension);
             return;
         }
@@ -778,7 +108,7 @@ TEST_F(VkLayerTest, GpuValidationArrayOOBRayTracingShaders) {
     }
 
     VkCommandPoolObj ray_tracing_command_pool(m_device, ray_tracing_queue_family_index,
-                                              VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+        VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     VkCommandBufferObj ray_tracing_command_buffer(m_device, &ray_tracing_command_pool);
 
     struct AABB {
@@ -790,7 +120,7 @@ TEST_F(VkLayerTest, GpuValidationArrayOOBRayTracingShaders) {
         float max_z;
     };
 
-    const std::vector<AABB> aabbs = {{-1.0f, -1.0f, -1.0f, +1.0f, +1.0f, +1.0f}};
+    const std::vector<AABB> aabbs = { {-1.0f, -1.0f, -1.0f, +1.0f, +1.0f, +1.0f} };
 
     struct VkGeometryInstanceNV {
         float transform[12];
@@ -804,7 +134,7 @@ TEST_F(VkLayerTest, GpuValidationArrayOOBRayTracingShaders) {
     VkDeviceSize aabb_buffer_size = sizeof(AABB) * aabbs.size();
     VkBufferObj aabb_buffer;
     aabb_buffer.init(*m_device, aabb_buffer_size, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                     VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, {ray_tracing_queue_family_index});
+        VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, { ray_tracing_queue_family_index });
 
     uint8_t *mapped_aabb_buffer_data = (uint8_t *)aabb_buffer.memory().map();
     std::memcpy(mapped_aabb_buffer_data, (uint8_t *)aabbs.data(), static_cast<std::size_t>(aabb_buffer_size));
@@ -856,8 +186,8 @@ TEST_F(VkLayerTest, GpuValidationArrayOOBRayTracingShaders) {
     VkDeviceSize instance_buffer_size = sizeof(VkGeometryInstanceNV) * instances.size();
     VkBufferObj instance_buffer;
     instance_buffer.init(*m_device, instance_buffer_size,
-                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                         VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, {ray_tracing_queue_family_index});
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, { ray_tracing_queue_family_index });
 
     uint8_t *mapped_instance_buffer_data = (uint8_t *)instance_buffer.memory().map();
     std::memcpy(mapped_instance_buffer_data, (uint8_t *)instances.data(), static_cast<std::size_t>(instance_buffer_size));
@@ -876,7 +206,7 @@ TEST_F(VkLayerTest, GpuValidationArrayOOBRayTracingShaders) {
     VkAccelerationStructureObj top_level_as(*m_device, top_level_as_create_info);
 
     VkDeviceSize scratch_buffer_size = std::max(bot_level_as.build_scratch_memory_requirements().memoryRequirements.size,
-                                                top_level_as.build_scratch_memory_requirements().memoryRequirements.size);
+        top_level_as.build_scratch_memory_requirements().memoryRequirements.size);
     VkBufferObj scratch_buffer;
     scratch_buffer.init(*m_device, scratch_buffer_size, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV);
 
@@ -891,8 +221,8 @@ TEST_F(VkLayerTest, GpuValidationArrayOOBRayTracingShaders) {
     memory_barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV;
     memory_barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV;
     ray_tracing_command_buffer.PipelineBarrier(VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV,
-                                               VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, 0, 1, &memory_barrier, 0,
-                                               nullptr, 0, nullptr);
+        VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, 0, 1, &memory_barrier, 0,
+        nullptr, 0, nullptr);
 
     // Build top level acceleration structure
     ray_tracing_command_buffer.BuildAccelerationStructure(&top_level_as, scratch_buffer.handle(), instance_buffer.handle());
@@ -913,18 +243,18 @@ TEST_F(VkLayerTest, GpuValidationArrayOOBRayTracingShaders) {
     VkDeviceSize storage_buffer_size = 1024;
     VkBufferObj storage_buffer;
     storage_buffer.init(*m_device, storage_buffer_size, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, {ray_tracing_queue_family_index});
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, { ray_tracing_queue_family_index });
 
     VkDeviceSize shader_binding_table_buffer_size = ray_tracing_properties.shaderGroupHandleSize * 4ull;
     VkBufferObj shader_binding_table_buffer;
     shader_binding_table_buffer.init(*m_device, shader_binding_table_buffer_size,
-                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                     VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, {ray_tracing_queue_family_index});
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, { ray_tracing_queue_family_index });
 
     // Setup descriptors!
     const VkShaderStageFlags kAllRayTracingStages = VK_SHADER_STAGE_RAYGEN_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV |
-                                                    VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_MISS_BIT_NV |
-                                                    VK_SHADER_STAGE_INTERSECTION_BIT_NV | VK_SHADER_STAGE_CALLABLE_BIT_NV;
+        VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_MISS_BIT_NV |
+        VK_SHADER_STAGE_INTERSECTION_BIT_NV | VK_SHADER_STAGE_CALLABLE_BIT_NV;
 
     void *layout_pnext = nullptr;
     void *allocate_pnext = nullptr;
@@ -948,12 +278,12 @@ TEST_F(VkLayerTest, GpuValidationArrayOOBRayTracingShaders) {
 
     // Prepare descriptors
     OneOffDescriptorSet ds(m_device,
-                           {
-                               {0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV, 1, kAllRayTracingStages, nullptr},
-                               {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, kAllRayTracingStages, nullptr},
-                               {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6, kAllRayTracingStages, nullptr},
-                           },
-                           layout_create_flags, layout_pnext, pool_create_flags);
+        {
+            {0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV, 1, kAllRayTracingStages, nullptr},
+            {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, kAllRayTracingStages, nullptr},
+            {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6, kAllRayTracingStages, nullptr},
+        },
+        layout_create_flags, layout_pnext, pool_create_flags);
 
     VkDescriptorSetVariableDescriptorCountAllocateInfoEXT variable_count = {};
     uint32_t desc_counts;
@@ -970,12 +300,12 @@ TEST_F(VkLayerTest, GpuValidationArrayOOBRayTracingShaders) {
     }
 
     OneOffDescriptorSet ds_variable(m_device,
-                                    {
-                                        {0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV, 1, kAllRayTracingStages, nullptr},
-                                        {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, kAllRayTracingStages, nullptr},
-                                        {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 8, kAllRayTracingStages, nullptr},
-                                    },
-                                    layout_create_flags, layout_pnext, pool_create_flags, allocate_pnext);
+        {
+            {0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV, 1, kAllRayTracingStages, nullptr},
+            {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, kAllRayTracingStages, nullptr},
+            {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 8, kAllRayTracingStages, nullptr},
+        },
+        layout_create_flags, layout_pnext, pool_create_flags, allocate_pnext);
 
     VkAccelerationStructureNV top_level_as_handle = top_level_as.handle();
     VkWriteDescriptorSetAccelerationStructureNV write_descript_set_as = {};
@@ -1015,7 +345,8 @@ TEST_F(VkLayerTest, GpuValidationArrayOOBRayTracingShaders) {
     descriptor_writes[2].dstBinding = 2;
     if (descriptor_indexing) {
         descriptor_writes[2].descriptorCount = 5;  // Intentionally don't write index 5
-    } else {
+    }
+    else {
         descriptor_writes[2].descriptorCount = 6;
     }
     descriptor_writes[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -1028,8 +359,8 @@ TEST_F(VkLayerTest, GpuValidationArrayOOBRayTracingShaders) {
         vk::UpdateDescriptorSets(m_device->device(), 3, descriptor_writes, 0, NULL);
     }
 
-    const VkPipelineLayoutObj pipeline_layout(m_device, {&ds.layout_});
-    const VkPipelineLayoutObj pipeline_layout_variable(m_device, {&ds_variable.layout_});
+    const VkPipelineLayoutObj pipeline_layout(m_device, { &ds.layout_ });
+    const VkPipelineLayoutObj pipeline_layout_variable(m_device, { &ds_variable.layout_ });
 
     const auto SetImagesArrayLength = [](const std::string &shader_template, const std::string &length_str) {
         const std::string to_replace = "IMAGES_ARRAY_LENGTH";
@@ -1329,59 +660,59 @@ TEST_F(VkLayerTest, GpuValidationArrayOOBRayTracingShaders) {
     };
 
     std::vector<TestCase> tests;
-    tests.push_back({rgen_source, ahit_source, chit_source, miss_source, intr_source, call_source, false, 25, 0, 0, 0, 0, 0,
-                     "Index of 25 used to index descriptor array of length 6."});
-    tests.push_back({rgen_source, ahit_source, chit_source, miss_source, intr_source, call_source, false, 0, 25, 0, 0, 0, 0,
-                     "Index of 25 used to index descriptor array of length 6."});
-    tests.push_back({rgen_source, ahit_source, chit_source, miss_source, intr_source, call_source, false, 0, 0, 25, 0, 0, 0,
-                     "Index of 25 used to index descriptor array of length 6."});
-    tests.push_back({rgen_source, ahit_source, chit_source, miss_source, intr_source, call_source, false, 0, 0, 0, 25, 0, 0,
-                     "Index of 25 used to index descriptor array of length 6."});
-    tests.push_back({rgen_source, ahit_source, chit_source, miss_source, intr_source, call_source, false, 0, 0, 0, 0, 25, 0,
-                     "Index of 25 used to index descriptor array of length 6."});
-    tests.push_back({rgen_source, ahit_source, chit_source, miss_source, intr_source, call_source, false, 0, 0, 0, 0, 0, 25,
-                     "Index of 25 used to index descriptor array of length 6."});
+    tests.push_back({ rgen_source, ahit_source, chit_source, miss_source, intr_source, call_source, false, 25, 0, 0, 0, 0, 0,
+                     "Index of 25 used to index descriptor array of length 6." });
+    tests.push_back({ rgen_source, ahit_source, chit_source, miss_source, intr_source, call_source, false, 0, 25, 0, 0, 0, 0,
+                     "Index of 25 used to index descriptor array of length 6." });
+    tests.push_back({ rgen_source, ahit_source, chit_source, miss_source, intr_source, call_source, false, 0, 0, 25, 0, 0, 0,
+                     "Index of 25 used to index descriptor array of length 6." });
+    tests.push_back({ rgen_source, ahit_source, chit_source, miss_source, intr_source, call_source, false, 0, 0, 0, 25, 0, 0,
+                     "Index of 25 used to index descriptor array of length 6." });
+    tests.push_back({ rgen_source, ahit_source, chit_source, miss_source, intr_source, call_source, false, 0, 0, 0, 0, 25, 0,
+                     "Index of 25 used to index descriptor array of length 6." });
+    tests.push_back({ rgen_source, ahit_source, chit_source, miss_source, intr_source, call_source, false, 0, 0, 0, 0, 0, 25,
+                     "Index of 25 used to index descriptor array of length 6." });
 
     if (descriptor_indexing) {
-        tests.push_back({rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
-                         call_source_runtime, true, 25, 0, 0, 0, 0, 0, "Index of 25 used to index descriptor array of length 6."});
-        tests.push_back({rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
-                         call_source_runtime, true, 0, 25, 0, 0, 0, 0, "Index of 25 used to index descriptor array of length 6."});
-        tests.push_back({rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
-                         call_source_runtime, true, 0, 0, 25, 0, 0, 0, "Index of 25 used to index descriptor array of length 6."});
-        tests.push_back({rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
-                         call_source_runtime, true, 0, 0, 0, 25, 0, 0, "Index of 25 used to index descriptor array of length 6."});
-        tests.push_back({rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
-                         call_source_runtime, true, 0, 0, 0, 0, 25, 0, "Index of 25 used to index descriptor array of length 6."});
-        tests.push_back({rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
-                         call_source_runtime, true, 0, 0, 0, 0, 0, 25, "Index of 25 used to index descriptor array of length 6."});
+        tests.push_back({ rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
+                         call_source_runtime, true, 25, 0, 0, 0, 0, 0, "Index of 25 used to index descriptor array of length 6." });
+        tests.push_back({ rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
+                         call_source_runtime, true, 0, 25, 0, 0, 0, 0, "Index of 25 used to index descriptor array of length 6." });
+        tests.push_back({ rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
+                         call_source_runtime, true, 0, 0, 25, 0, 0, 0, "Index of 25 used to index descriptor array of length 6." });
+        tests.push_back({ rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
+                         call_source_runtime, true, 0, 0, 0, 25, 0, 0, "Index of 25 used to index descriptor array of length 6." });
+        tests.push_back({ rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
+                         call_source_runtime, true, 0, 0, 0, 0, 25, 0, "Index of 25 used to index descriptor array of length 6." });
+        tests.push_back({ rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
+                         call_source_runtime, true, 0, 0, 0, 0, 0, 25, "Index of 25 used to index descriptor array of length 6." });
 
         // For this group, 6 is less than max specified (max specified is 8) but more than actual specified (actual specified is 5)
-        tests.push_back({rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
-                         call_source_runtime, true, 6, 0, 0, 0, 0, 0, "Index of 6 used to index descriptor array of length 6."});
-        tests.push_back({rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
-                         call_source_runtime, true, 0, 6, 0, 0, 0, 0, "Index of 6 used to index descriptor array of length 6."});
-        tests.push_back({rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
-                         call_source_runtime, true, 0, 0, 6, 0, 0, 0, "Index of 6 used to index descriptor array of length 6."});
-        tests.push_back({rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
-                         call_source_runtime, true, 0, 0, 0, 6, 0, 0, "Index of 6 used to index descriptor array of length 6."});
-        tests.push_back({rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
-                         call_source_runtime, true, 0, 0, 0, 0, 6, 0, "Index of 6 used to index descriptor array of length 6."});
-        tests.push_back({rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
-                         call_source_runtime, true, 0, 0, 0, 0, 0, 6, "Index of 6 used to index descriptor array of length 6."});
+        tests.push_back({ rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
+                         call_source_runtime, true, 6, 0, 0, 0, 0, 0, "Index of 6 used to index descriptor array of length 6." });
+        tests.push_back({ rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
+                         call_source_runtime, true, 0, 6, 0, 0, 0, 0, "Index of 6 used to index descriptor array of length 6." });
+        tests.push_back({ rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
+                         call_source_runtime, true, 0, 0, 6, 0, 0, 0, "Index of 6 used to index descriptor array of length 6." });
+        tests.push_back({ rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
+                         call_source_runtime, true, 0, 0, 0, 6, 0, 0, "Index of 6 used to index descriptor array of length 6." });
+        tests.push_back({ rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
+                         call_source_runtime, true, 0, 0, 0, 0, 6, 0, "Index of 6 used to index descriptor array of length 6." });
+        tests.push_back({ rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
+                         call_source_runtime, true, 0, 0, 0, 0, 0, 6, "Index of 6 used to index descriptor array of length 6." });
 
-        tests.push_back({rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
-                         call_source_runtime, true, 5, 0, 0, 0, 0, 0, "Descriptor index 5 is uninitialized."});
-        tests.push_back({rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
-                         call_source_runtime, true, 0, 5, 0, 0, 0, 0, "Descriptor index 5 is uninitialized."});
-        tests.push_back({rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
-                         call_source_runtime, true, 0, 0, 5, 0, 0, 0, "Descriptor index 5 is uninitialized."});
-        tests.push_back({rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
-                         call_source_runtime, true, 0, 0, 0, 5, 0, 0, "Descriptor index 5 is uninitialized."});
-        tests.push_back({rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
-                         call_source_runtime, true, 0, 0, 0, 0, 5, 0, "Descriptor index 5 is uninitialized."});
-        tests.push_back({rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
-                         call_source_runtime, true, 0, 0, 0, 0, 0, 5, "Descriptor index 5 is uninitialized."});
+        tests.push_back({ rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
+                         call_source_runtime, true, 5, 0, 0, 0, 0, 0, "Descriptor index 5 is uninitialized." });
+        tests.push_back({ rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
+                         call_source_runtime, true, 0, 5, 0, 0, 0, 0, "Descriptor index 5 is uninitialized." });
+        tests.push_back({ rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
+                         call_source_runtime, true, 0, 0, 5, 0, 0, 0, "Descriptor index 5 is uninitialized." });
+        tests.push_back({ rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
+                         call_source_runtime, true, 0, 0, 0, 5, 0, 0, "Descriptor index 5 is uninitialized." });
+        tests.push_back({ rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
+                         call_source_runtime, true, 0, 0, 0, 0, 5, 0, "Descriptor index 5 is uninitialized." });
+        tests.push_back({ rgen_source_runtime, ahit_source_runtime, chit_source_runtime, miss_source_runtime, intr_source_runtime,
+                         call_source_runtime, true, 0, 0, 0, 0, 0, 5, "Descriptor index 5 is uninitialized." });
     }
 
     PFN_vkCreateRayTracingPipelinesNV vkCreateRayTracingPipelinesNV = reinterpret_cast<PFN_vkCreateRayTracingPipelinesNV>(
@@ -1488,8 +819,8 @@ TEST_F(VkLayerTest, GpuValidationArrayOOBRayTracingShaders) {
             std::vector<uint8_t> shader_binding_table_data;
             shader_binding_table_data.resize(static_cast<std::size_t>(shader_binding_table_buffer_size), 0);
             ASSERT_VK_SUCCESS(vkGetRayTracingShaderGroupHandlesNV(m_device->handle(), pipeline, 0, 4,
-                                                                  static_cast<std::size_t>(shader_binding_table_buffer_size),
-                                                                  shader_binding_table_data.data()));
+                static_cast<std::size_t>(shader_binding_table_buffer_size),
+                shader_binding_table_data.data()));
 
             uint8_t *mapped_shader_binding_table_data = (uint8_t *)shader_binding_table_buffer.memory().map();
             std::memcpy(mapped_shader_binding_table_data, shader_binding_table_data.data(), shader_binding_table_data.size());
@@ -1501,20 +832,21 @@ TEST_F(VkLayerTest, GpuValidationArrayOOBRayTracingShaders) {
 
             if (i == 1) {
                 vk::CmdBindDescriptorSets(ray_tracing_command_buffer.handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_NV,
-                                          test.variable_length ? pipeline_layout_variable.handle() : pipeline_layout.handle(), 0, 1,
-                                          test.variable_length ? &ds_variable.set_ : &ds.set_, 0, nullptr);
-            } else {
+                    test.variable_length ? pipeline_layout_variable.handle() : pipeline_layout.handle(), 0, 1,
+                    test.variable_length ? &ds_variable.set_ : &ds.set_, 0, nullptr);
+            }
+            else {
                 m_errorMonitor->SetDesiredFailureMsg(kErrorBit, "VUID-vkCmdTraceRaysNV-None-02697");
                 m_errorMonitor->SetDesiredFailureMsg(kErrorBit, "UNASSIGNED-CoreValidation-DrawState-DescriptorSetNotBound");
             }
 
             vkCmdTraceRaysNV(ray_tracing_command_buffer.handle(), shader_binding_table_buffer.handle(),
-                             ray_tracing_properties.shaderGroupHandleSize * 0ull, shader_binding_table_buffer.handle(),
-                             ray_tracing_properties.shaderGroupHandleSize * 1ull, ray_tracing_properties.shaderGroupHandleSize,
-                             shader_binding_table_buffer.handle(), ray_tracing_properties.shaderGroupHandleSize * 2ull,
-                             ray_tracing_properties.shaderGroupHandleSize, shader_binding_table_buffer.handle(),
-                             ray_tracing_properties.shaderGroupHandleSize * 3ull, ray_tracing_properties.shaderGroupHandleSize,
-                             /*width=*/1, /*height=*/1, /*depth=*/1);
+                ray_tracing_properties.shaderGroupHandleSize * 0ull, shader_binding_table_buffer.handle(),
+                ray_tracing_properties.shaderGroupHandleSize * 1ull, ray_tracing_properties.shaderGroupHandleSize,
+                shader_binding_table_buffer.handle(), ray_tracing_properties.shaderGroupHandleSize * 2ull,
+                ray_tracing_properties.shaderGroupHandleSize, shader_binding_table_buffer.handle(),
+                ray_tracing_properties.shaderGroupHandleSize * 3ull, ray_tracing_properties.shaderGroupHandleSize,
+                /*width=*/1, /*height=*/1, /*depth=*/1);
 
             ray_tracing_command_buffer.end();
 
