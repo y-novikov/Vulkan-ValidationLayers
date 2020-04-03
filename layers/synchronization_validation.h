@@ -193,6 +193,9 @@ class AccessContext {
     HazardResult DetectHazard(const IMAGE_STATE &image, SyncStageAccessIndex current_usage,
                               const VkImageSubresourceLayers &subresource, const VkOffset3D &offset,
                               const VkExtent3D &extent) const;
+    HazardResult DetectHazard(const IMAGE_STATE &image, SyncStageAccessIndex current_usage,
+                              const VkImageSubresourceRange &subres_range, const VkOffset3D &offset,
+                              const VkExtent3D &extent) const;
     HazardResult DetectImageBarrierHazard(const IMAGE_STATE &image, VkPipelineStageFlags src_exec_scope,
                                           SyncStageAccessFlags src_access_scope, const VkImageSubresourceRange &subresource_range,
                                           DetectOptions options) const;
@@ -537,4 +540,10 @@ class SyncValidator : public ValidationStateTracker, public SyncStageAccess {
     void PreCallRecordCmdBlitImage(VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout, VkImage dstImage,
                                    VkImageLayout dstImageLayout, uint32_t regionCount, const VkImageBlit *pRegions,
                                    VkFilter filter);
+
+    bool DetectDescriptorSetHazard(const CMD_BUFFER_STATE &cmd, VkPipelineBindPoint pipelineBindPoint, const char *function) const;
+    void UpdateDescriptorSetAccessState(const CMD_BUFFER_STATE &cmd, CMD_TYPE command, VkPipelineBindPoint pipelineBindPoint);
+
+    bool PreCallValidateCmdDispatch(VkCommandBuffer commandBuffer, uint32_t x, uint32_t y, uint32_t z) const;
+    void PreCallRecordCmdDispatch(VkCommandBuffer commandBuffer, uint32_t x, uint32_t y, uint32_t z);
 };
