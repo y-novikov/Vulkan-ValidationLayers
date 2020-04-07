@@ -81,7 +81,7 @@ IMAGE_STATE::IMAGE_STATE(VkDevice dev, VkImage img, const VkImageCreateInfo *pCr
       bind_swapchain(VK_NULL_HANDLE),
       bind_swapchain_imageIndex(0),
       subresource_encoder(full_range),
-      // TODO enable when cont usage works... fragment_encoder(dev, *this),
+      fragment_encoder(dev, *this),
       store_device_as_workaround(dev),  // TODO REMOVE WHEN encoder can be const
       sparse_requirements{} {
     if ((createInfo.sharingMode == VK_SHARING_MODE_CONCURRENT) && (createInfo.queueFamilyIndexCount > 0)) {
