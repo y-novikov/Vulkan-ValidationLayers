@@ -1210,6 +1210,7 @@ void SyncValidator::PreCallRecordCmdCopyBuffer(VkCommandBuffer commandBuffer, Vk
                                                uint32_t regionCount, const VkBufferCopy *pRegions) {
     auto *cb_context = GetAccessContext(commandBuffer);
     assert(cb_context);
+    const auto tag = cb_context->NextCommandTag(CMD_COPYBUFFER);
     auto *context = cb_context->GetCurrentAccessContext();
 
     const auto *src_buffer = Get<BUFFER_STATE>(srcBuffer);
@@ -1276,6 +1277,7 @@ void SyncValidator::PreCallRecordCmdCopyImage(VkCommandBuffer commandBuffer, VkI
                                               const VkImageCopy *pRegions) {
     auto *cb_access_context = GetAccessContext(commandBuffer);
     assert(cb_access_context);
+    const auto tag = cb_access_context->NextCommandTag(CMD_COPYIMAGE);
     auto *context = cb_access_context->GetCurrentAccessContext();
     assert(context);
 
@@ -1344,6 +1346,7 @@ void SyncValidator::PreCallRecordCmdPipelineBarrier(VkCommandBuffer commandBuffe
     auto *cb_access_context = GetAccessContext(commandBuffer);
     assert(cb_access_context);
     if (!cb_access_context) return;
+    const auto tag = cb_access_context->NextCommandTag(CMD_PIPELINEBARRIER);
     auto access_context = cb_access_context->GetCurrentAccessContext();
     assert(access_context);
     if (!access_context) return;
@@ -1645,6 +1648,7 @@ void SyncValidator::PreCallRecordCmdCopyBufferToImage(VkCommandBuffer commandBuf
                                                       const VkBufferImageCopy *pRegions) {
     auto *cb_access_context = GetAccessContext(commandBuffer);
     assert(cb_access_context);
+    const auto tag = cb_access_context->NextCommandTag(CMD_COPYBUFFERTOIMAGE);
     auto *context = cb_access_context->GetCurrentAccessContext();
     assert(context);
 
@@ -1710,6 +1714,7 @@ void SyncValidator::PreCallRecordCmdCopyImageToBuffer(VkCommandBuffer commandBuf
                                                       VkBuffer dstBuffer, uint32_t regionCount, const VkBufferImageCopy *pRegions) {
     auto *cb_access_context = GetAccessContext(commandBuffer);
     assert(cb_access_context);
+    const auto tag = cb_access_context->NextCommandTag(CMD_COPYIMAGETOBUFFER);
     auto *context = cb_access_context->GetCurrentAccessContext();
     assert(context);
 
@@ -1785,6 +1790,7 @@ void SyncValidator::PreCallRecordCmdBlitImage(VkCommandBuffer commandBuffer, VkI
                                               const VkImageBlit *pRegions, VkFilter filter) {
     auto *cb_access_context = GetAccessContext(commandBuffer);
     assert(cb_access_context);
+    const auto tag = cb_access_context->NextCommandTag(CMD_BLITIMAGE);
     auto *context = cb_access_context->GetCurrentAccessContext();
     assert(context);
 
