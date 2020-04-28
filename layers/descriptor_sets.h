@@ -639,6 +639,11 @@ class DescriptorSet : public BASE_NODE {
                            BindingReqMap *out_req) const;
     void UpdateValidationCache(const CMD_BUFFER_STATE &cb_state, const PIPELINE_STATE &pipeline,
                                const BindingReqMap &updated_bindings);
+
+    const BindingReqMap GetBindingReqMap(const CMD_BUFFER_STATE &cb_node, const PIPELINE_STATE &pipe, const PER_SET &set,
+                                         const BindingReqMap &binding_req_map, bool disabled_image_layout_validation,
+                                         bool validate) const;
+
     void ClearCachedDynamicDescriptorValidation(CMD_BUFFER_STATE *cb_state) {
         cached_validation_[cb_state].dynamic_buffers.clear();
     }

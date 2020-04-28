@@ -1843,6 +1843,7 @@ bool SyncValidator::DetectDescriptorSetHazard(const CMD_BUFFER_STATE &cmd, const
     using TexelDescriptor = cvdescriptorset::TexelDescriptor;
 
     for (auto binding_pair : bindings) {
+        auto binding = binding_pair.first;
         cvdescriptorset::DescriptorSetLayout::ConstBindingIterator binding_it(descriptor_set.GetLayout().get(), binding_pair.first);
         cvdescriptorset::IndexRange index_range = binding_it.GetGlobalIndexRange();
         auto array_idx = 0;
@@ -1920,9 +1921,9 @@ bool SyncValidator::DetectCommandBufferHazard(const CMD_BUFFER_STATE &cmd, VkPip
     }
     for (const auto &set_binding_pair : pPipe->active_slots) {
         uint32_t setIndex = set_binding_pair.first;
-        const cvdescriptorset::DescriptorSet *descriptor_set = state.per_set[setIndex].bound_descriptor_set;
-        cvdescriptorset::PrefilterBindRequestMap reduced_map(*descriptor_set, set_binding_pair.second);
-        const auto &binding_req_map = reduced_map.FilteredMap(cmd, *pPipe);
+        cvdescriptorset::DescriptorSet *descriptor_set = state.per_set[setIndex].bound_descriptor_set;
+        auto binding_req_map = descriptor_set->GetBindingReqMap(cmd, *pPipe, state.per_set[setIndex], set_binding_pair.second,
+                                                                disabled.image_layout_validation, true);
         skip |= DetectDescriptorSetHazard(cmd, *descriptor_set, binding_req_map, function);
     }
     return skip;
@@ -2001,8 +2002,8 @@ void SyncValidator::UpdateCommandBufferAccessState(const CMD_BUFFER_STATE &cmd, 
     for (const auto &set_binding_pair : pPipe->active_slots) {
         uint32_t setIndex = set_binding_pair.first;
         const cvdescriptorset::DescriptorSet *descriptor_set = state.per_set[setIndex].bound_descriptor_set;
-        cvdescriptorset::PrefilterBindRequestMap reduced_map(*descriptor_set, set_binding_pair.second);
-        const auto &binding_req_map = reduced_map.FilteredMap(cmd, *pPipe);
+        auto binding_req_map = descriptor_set->GetBindingReqMap(cmd, *pPipe, state.per_set[setIndex], set_binding_pair.second,
+                                                                disabled.image_layout_validation, false);
         UpdateDescriptorSetAccessState(cmd, command, *descriptor_set, binding_req_map);
     }
 }

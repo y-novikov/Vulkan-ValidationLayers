@@ -1367,6 +1367,55 @@ void cvdescriptorset::DescriptorSet::FilterBindingReqs(const CMD_BUFFER_STATE &c
     }
 }
 
+const BindingReqMap cvdescriptorset::DescriptorSet ::GetBindingReqMap(const CMD_BUFFER_STATE &cb_node, const PIPELINE_STATE &pipe,
+                                                                      const PER_SET &set, const BindingReqMap &binding_req_map,
+                                                                      bool disabled_image_layout_validation, bool validate) const {
+    if (!IsPushDescriptor()) {
+        // For the "bindless" style resource usage with many descriptors, need to optimize command <-> descriptor
+        // binding validation. Take the requested binding set and prefilter it to eliminate redundant validation checks.
+        // Here, the currently bound pipeline determines whether an image validation check is redundant...
+        // for images are the "req" portion of the binding_req is indirectly (but tightly) coupled to the pipeline.
+
+        // TODO: If recreating the reduced_map here shows up in profilinging, need to find a way of sharing with the
+        // Validate pass.  Though in the case of "many" descriptors, typically the descriptor count >> binding count
+        PrefilterBindRequestMap reduced_map(*this, binding_req_map);
+        const auto &binding_req_map_filter = reduced_map.FilteredMap(cb_node, pipe);
+
+        // We can skip validating the descriptor set if "nothing" has changed since the last validation.
+        // Same set, no image layout changes, and same "pipeline state" (binding_req_map). If there are
+        // any dynamic descriptors, always revalidate rather than caching the values. We currently only
+        // apply this optimization if IsManyDescriptors is true, to avoid the overhead of copying the
+        // binding_req_map which could potentially be expensive.
+        bool descriptor_set_changed =
+            !reduced_map.IsManyDescriptors() ||
+            // Revalidate/Update if descriptor set (or contents) has changed
+            set.validated_set != this || set.validated_set_change_count != GetChangeCount() ||
+            (!disabled_image_layout_validation && set.validated_set_image_layout_change_count != cb_node.image_layout_change_count);
+        if (validate)
+            // Revalidate each time if the set has dynamic offsets
+            descriptor_set_changed |= (set.dynamicOffsets.size() > 0);
+
+        bool need_validate = descriptor_set_changed ||
+                             // Revalidate/Update if previous bindingReqMap doesn't include new bindingReqMap
+                             !std::includes(set.validated_set_binding_req_map.begin(), set.validated_set_binding_req_map.end(),
+                                            binding_req_map_filter.begin(), binding_req_map_filter.end());
+
+        if (need_validate) {
+            if (!descriptor_set_changed && reduced_map.IsManyDescriptors()) {
+                // Only validate the bindings that haven't already been validated
+                BindingReqMap delta_reqs;
+                std::set_difference(binding_req_map_filter.begin(), binding_req_map_filter.end(),
+                                    set.validated_set_binding_req_map.begin(), set.validated_set_binding_req_map.end(),
+                                    std::inserter(delta_reqs, delta_reqs.begin()));
+                return delta_reqs;
+            } else {
+                return binding_req_map_filter;
+            }
+        }
+    }
+    return BindingReqMap();
+}
+
 void cvdescriptorset::DescriptorSet::UpdateValidationCache(const CMD_BUFFER_STATE &cb_state, const PIPELINE_STATE &pipeline,
                                                            const BindingReqMap &updated_bindings) {
     // For const cleanliness we have to find in the maps...
