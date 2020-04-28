@@ -989,8 +989,9 @@ HazardResult ResourceAccessState::DetectBarrierHazard(SyncStageAccessIndex usage
             // TODO: Do we need a difference hazard name for this?
             hazard.Set(WRITE_AFTER_WRITE, write_tag);
         }
-    } else {
-        // Look at the reads
+    }
+    if (!hazard.hazard) {
+        // Look at the reads if any
         for (uint32_t read_index = 0; read_index < last_read_count; read_index++) {
             const auto &read_access = last_reads[read_index];
             // If the read stage is not in the src sync sync
