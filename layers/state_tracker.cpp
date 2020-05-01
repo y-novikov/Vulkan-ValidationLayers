@@ -673,11 +673,10 @@ BINDABLE *ValidationStateTracker::GetObjectMemBinding(const VulkanTypedHandle &t
     return GetObjectMemBindingImpl<ValidationStateTracker *, BINDABLE *>(this, typed_handle);
 }
 
-void ValidationStateTracker::AddMemObjInfo(void *object, const VkDeviceMemory mem, const VkMemoryAllocateInfo *pAllocateInfo) {
-    assert(object != NULL);
-
+void ValidationStateTracker::AddMemObjInfo(const VkDevice dev, const VkDeviceMemory mem,
+                                           const VkMemoryAllocateInfo *pAllocateInfo) {
     auto fake_address = fake_memory.Alloc(pAllocateInfo->allocationSize);
-    memObjMap[mem] = std::make_shared<DEVICE_MEMORY_STATE>(object, mem, pAllocateInfo, fake_address);
+    memObjMap[mem] = std::make_shared<DEVICE_MEMORY_STATE>(dev, mem, pAllocateInfo, fake_address);
     auto mem_info = memObjMap[mem].get();
 
     auto dedicated = lvl_find_in_chain<VkMemoryDedicatedAllocateInfoKHR>(pAllocateInfo->pNext);
