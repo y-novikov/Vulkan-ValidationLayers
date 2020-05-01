@@ -342,11 +342,17 @@ const VkSubresourceLayout& ImageRangeEncoder::SubresourceLayout(const VkImageSub
 ImageRangeGenerator::ImageRangeGenerator(const ImageRangeEncoder& encoder, const VkImageSubresourceRange& subres_range,
                                          const VkOffset3D& offset, const VkExtent3D& extent)
     : encoder_(&encoder), subres_range_(subres_range), offset_(offset), extent_(extent) {
-    assert(IsValid(*encoder_, subres_range));
+    if (subres_range_.levelCount == VK_REMAINING_MIP_LEVELS) {
+        subres_range_.levelCount = encoder.FullRange().levelCount - subres_range_.baseMipLevel;
+    }
+    if (subres_range_.layerCount == VK_REMAINING_ARRAY_LAYERS) {
+        subres_range_.layerCount = encoder.FullRange().layerCount - subres_range_.baseArrayLayer;
+    }
+    assert(IsValid(*encoder_, subres_range_));
     mip_level_index_ = 0;
-    aspect_index_ = encoder_->LowerBoundFromMask(subres_range.aspectMask);
+    aspect_index_ = encoder_->LowerBoundFromMask(subres_range_.aspectMask);
     if ((offset_.z + extent_.depth) == 1) {
-        range_arraylayer_base_ = subres_range.baseArrayLayer;
+        range_arraylayer_base_ = subres_range_.baseArrayLayer;
         range_layer_count_ = subres_range_.layerCount;
     } else {
         range_arraylayer_base_ = offset_.z;

@@ -368,7 +368,7 @@ class ImageRangeGenerator {
 
   private:
     const ImageRangeEncoder* encoder_;
-    const VkImageSubresourceRange subres_range_;
+    VkImageSubresourceRange subres_range_;
     const VkOffset3D offset_;
     const VkExtent3D extent_;
     uint32_t range_arraylayer_base_;
