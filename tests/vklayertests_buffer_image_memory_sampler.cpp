@@ -11511,4 +11511,5 @@ TEST_F(VkLayerTest, SyncRenderPassBeginTransitionHazard) {
     m_commandBuffer->BeginRenderPass(m_renderPassBeginInfo);
     m_commandBuffer->EndRenderPass();
     m_errorMonitor->VerifyNotFound();
+
 }
