@@ -899,7 +899,7 @@ void RenderPassAccessContext::RecordLayoutTransitions(const ResourceUsageTag &ta
 void RenderPassAccessContext::RecordBeginRenderPass(const SyncValidator &state, const CMD_BUFFER_STATE &cb_state,
                                                     VkQueueFlags queue_flags, const ResourceUsageTag &tag) {
     current_subpass_ = 0;
-    rp_state_ = cb_state.activeRenderPass;
+    rp_state_ = cb_state.activeRenderPass.get();
     subpass_contexts_.reserve(rp_state_->createInfo.subpassCount);
     // Add this for all subpasses here so that they exsist during next subpass validation
     for (uint32_t pass = 0; pass < rp_state_->createInfo.subpassCount; pass++) {
@@ -1600,7 +1600,7 @@ void SyncValidator::RecordCmdEndRenderPass(VkCommandBuffer commandBuffer, const 
     auto cb_state = cb_context->GetCommandBufferState();
     if (!cb_state) return;
 
-    const auto *rp_state = cb_state->activeRenderPass;
+    const auto *rp_state = cb_state->activeRenderPass.get();
     if (!rp_state) return;
 
     cb_context->RecordEndRenderPass(*rp_state, cb_context->NextCommandTag(command));
