@@ -2266,6 +2266,121 @@ void SyncValidator::GetIndicesAndUpdateVertexAccessState(const CMD_BUFFER_STATE 
     }
 }
 
+bool SyncValidator::DetectSubpassAttachmentHazard(const CMD_BUFFER_STATE &cmd, const char *function) const {
+    bool skip = false;
+
+    const auto *cb_access_context = GetAccessContext(cmd.commandBuffer);
+    assert(cb_access_context);
+    if (!cb_access_context) return skip;
+
+    const auto *context = cb_access_context->GetCurrentAccessContext();
+    assert(context);
+    if (!context) return skip;
+
+    const auto &subpass = cmd.activeRenderPass->createInfo.pSubpasses[cmd.activeSubpass];
+    const auto *framebuffer = cmd.activeFramebuffer.get();
+    VkExtent3D framebuffer_extent = {framebuffer->createInfo.width, framebuffer->createInfo.height, framebuffer->createInfo.layers};
+
+    auto dtct_fn = [&cmd, function, framebuffer, &framebuffer_extent, context](
+                       const SyncValidator &this_, const safe_VkAttachmentReference2 &attachment_ref,
+                       const SyncStageAccessIndex sync_index, const std::string &attachment_desription) {
+        if (attachment_ref.attachment == VK_ATTACHMENT_UNUSED) return false;
+        auto attachment_index = attachment_ref.attachment;
+        if (framebuffer->createInfo.attachmentCount > attachment_index) {
+            const IMAGE_VIEW_STATE *img_view_state =
+                this_.Get<IMAGE_VIEW_STATE>(framebuffer->createInfo.pAttachments[attachment_index]);
+            if (!img_view_state) return false;
+            const IMAGE_STATE *img_state = img_view_state->image_state.get();
+            auto hazard = context->DetectHazard(*img_state, sync_index, img_view_state->create_info.subresourceRange, {0, 0, 0},
+                                                framebuffer_extent);
+            if (hazard.hazard) {
+                return this_.LogError(img_view_state->image_view, string_SyncHazardVUID(hazard.hazard),
+                                      "%s: Hazard %s for %s in %s, Subpass #%d, and %s", function, string_SyncHazard(hazard.hazard),
+                                      this_.report_data->FormatHandle(img_view_state->image_view).c_str(),
+                                      this_.report_data->FormatHandle(cmd.commandBuffer).c_str(), cmd.activeSubpass,
+                                      attachment_desription.c_str());
+            }
+        }
+        return false;
+    };
+
+    if (subpass.inputAttachmentCount && subpass.pInputAttachments) {
+        for (uint32_t i = 0; i < subpass.inputAttachmentCount; ++i) {
+            std::string attachment_desription = "pInputAttachments #" + i;
+            skip |= dtct_fn(*this, subpass.pInputAttachments[i], SYNC_FRAGMENT_SHADER_INPUT_ATTACHMENT_READ, attachment_desription);
+        }
+    }
+    if (subpass.colorAttachmentCount) {
+        if (subpass.pColorAttachments) {
+            for (uint32_t i = 0; i < subpass.colorAttachmentCount; ++i) {
+                std::string attachment_desription = "pColorAttachments #" + i;
+                skip |= dtct_fn(*this, subpass.pColorAttachments[i], SYNC_COLOR_ATTACHMENT_OUTPUT_COLOR_ATTACHMENT_WRITE,
+                                attachment_desription);
+            }
+        }
+        if (subpass.pResolveAttachments) {
+            for (uint32_t i = 0; i < subpass.colorAttachmentCount; ++i) {
+                std::string attachment_desription = "pResolveAttachments #" + i;
+                skip |= dtct_fn(*this, subpass.pResolveAttachments[i], SYNC_COLOR_ATTACHMENT_OUTPUT_COLOR_ATTACHMENT_WRITE,
+                                attachment_desription);
+            }
+        }
+    }
+    if (subpass.pDepthStencilAttachment) {
+        skip |= dtct_fn(*this, *subpass.pDepthStencilAttachment, SYNC_COLOR_ATTACHMENT_OUTPUT_COLOR_ATTACHMENT_WRITE,
+                        "pDepthStencilAttachment");
+    }
+    return skip;
+}
+
+void SyncValidator::UpdateSubpassAttachmentAccessState(const CMD_BUFFER_STATE &cmd, CMD_TYPE command) {
+    auto *cb_access_context = GetAccessContext(cmd.commandBuffer);
+    assert(cb_access_context);
+    const auto tag = cb_access_context->NextCommandTag(command);
+    auto *context = cb_access_context->GetCurrentAccessContext();
+    assert(context);
+
+    const auto &subpass = cmd.activeRenderPass->createInfo.pSubpasses[cmd.activeSubpass];
+    const auto *framebuffer = cmd.activeFramebuffer.get();
+    VkExtent3D framebuffer_extent = {framebuffer->createInfo.width, framebuffer->createInfo.height, framebuffer->createInfo.layers};
+
+    auto updt_fn = [&cmd, framebuffer, &framebuffer_extent, context, &tag](const SyncValidator &this_,
+                                                                           const safe_VkAttachmentReference2 &attachment_ref,
+                                                                           const SyncStageAccessIndex sync_index) {
+        if (attachment_ref.attachment == VK_ATTACHMENT_UNUSED) return;
+        auto attachment_index = attachment_ref.attachment;
+        if (framebuffer->createInfo.attachmentCount > attachment_index) {
+            const IMAGE_VIEW_STATE *img_view_state =
+                this_.Get<IMAGE_VIEW_STATE>(framebuffer->createInfo.pAttachments[attachment_index]);
+            if (!img_view_state) return;
+            const IMAGE_STATE *img_state = img_view_state->image_state.get();
+            context->UpdateAccessState(*img_state, sync_index, img_view_state->create_info.subresourceRange, {0, 0, 0},
+                                       framebuffer_extent, tag);
+        }
+    };
+
+    if (subpass.inputAttachmentCount && subpass.pInputAttachments) {
+        for (uint32_t i = 0; i < subpass.inputAttachmentCount; ++i) {
+            updt_fn(*this, subpass.pInputAttachments[i], SYNC_FRAGMENT_SHADER_INPUT_ATTACHMENT_READ);
+        }
+    }
+    if (subpass.colorAttachmentCount) {
+        if (subpass.pColorAttachments) {
+            for (uint32_t i = 0; i < subpass.colorAttachmentCount; ++i) {
+                updt_fn(*this, subpass.pColorAttachments[i], SYNC_COLOR_ATTACHMENT_OUTPUT_COLOR_ATTACHMENT_WRITE);
+            }
+        }
+        if (subpass.pResolveAttachments) {
+            for (uint32_t i = 0; i < subpass.colorAttachmentCount; ++i) {
+                updt_fn(*this, subpass.pResolveAttachments[i], SYNC_COLOR_ATTACHMENT_OUTPUT_COLOR_ATTACHMENT_WRITE);
+            }
+        }
+    }
+    if (subpass.pDepthStencilAttachment) {
+        updt_fn(*this, *subpass.pDepthStencilAttachment, SYNC_COLOR_ATTACHMENT_OUTPUT_COLOR_ATTACHMENT_WRITE);
+    }
+}
+
 bool SyncValidator::PreCallValidateCmdDispatch(VkCommandBuffer commandBuffer, uint32_t x, uint32_t y, uint32_t z) const {
     const auto *cb_state = Get<CMD_BUFFER_STATE>(commandBuffer);
     return DetectDescriptorSetHazard(*cb_state, VK_PIPELINE_BIND_POINT_COMPUTE, "vkCmdDispatch");
@@ -2292,6 +2407,7 @@ bool SyncValidator::PreCallValidateCmdDraw(VkCommandBuffer commandBuffer, uint32
     const auto *cb_state = Get<CMD_BUFFER_STATE>(commandBuffer);
     skip |= DetectDescriptorSetHazard(*cb_state, VK_PIPELINE_BIND_POINT_GRAPHICS, "vkCmdDraw");
     skip |= DetectVertexHazard(*cb_state, vertexCount, firstVertex, "vkCmdDraw");
+    skip |= DetectSubpassAttachmentHazard(*cb_state, "vkCmdDraw");
     return skip;
 }
 
@@ -2300,6 +2416,7 @@ void SyncValidator::PreCallRecordCmdDraw(VkCommandBuffer commandBuffer, uint32_t
     const auto *cb_state = Get<CMD_BUFFER_STATE>(commandBuffer);
     UpdateDescriptorSetAccessState(*cb_state, CMD_DRAW, VK_PIPELINE_BIND_POINT_GRAPHICS);
     UpdateVertexAccessState(*cb_state, CMD_DRAW, vertexCount, firstVertex);
+    UpdateSubpassAttachmentAccessState(*cb_state, CMD_DRAW);
 }
 
 bool SyncValidator::PreCallValidateCmdDrawIndexed(VkCommandBuffer commandBuffer, uint32_t indexCount, uint32_t instanceCount,
@@ -2308,6 +2425,7 @@ bool SyncValidator::PreCallValidateCmdDrawIndexed(VkCommandBuffer commandBuffer,
     const auto *cb_state = Get<CMD_BUFFER_STATE>(commandBuffer);
     skip |= DetectDescriptorSetHazard(*cb_state, VK_PIPELINE_BIND_POINT_GRAPHICS, "vkCmdDrawIndexed");
     skip |= DetectVertexIndexHazard(*cb_state, indexCount, firstIndex, "vkCmdDrawIndexed");
+    skip |= DetectSubpassAttachmentHazard(*cb_state, "vkCmdDrawIndexed");
     return skip;
 }
 
@@ -2316,6 +2434,7 @@ void SyncValidator::PreCallRecordCmdDrawIndexed(VkCommandBuffer commandBuffer, u
     const auto *cb_state = Get<CMD_BUFFER_STATE>(commandBuffer);
     UpdateDescriptorSetAccessState(*cb_state, CMD_DRAWINDEXED, VK_PIPELINE_BIND_POINT_GRAPHICS);
     UpdateVertexAccessState(*cb_state, CMD_DRAWINDEXED, indexCount, firstIndex);
+    UpdateSubpassAttachmentAccessState(*cb_state, CMD_DRAWINDEXED);
 }
 
 bool SyncValidator::PreCallValidateCmdDrawIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset,

@@ -564,6 +564,9 @@ class SyncValidator : public ValidationStateTracker, public SyncStageAccess {
     void GetIndicesAndUpdateVertexAccessState(const CMD_BUFFER_STATE &cmd, CMD_TYPE command, const BUFFER_STATE &index_buf_state,
                                               const VkDeviceSize &index_size, uint32_t indexCount, uint32_t firstIndex);
 
+    bool DetectSubpassAttachmentHazard(const CMD_BUFFER_STATE &cmd, const char *function) const;
+    void UpdateSubpassAttachmentAccessState(const CMD_BUFFER_STATE &cmd, CMD_TYPE command);
+
     bool PreCallValidateCmdDispatch(VkCommandBuffer commandBuffer, uint32_t x, uint32_t y, uint32_t z) const;
     void PreCallRecordCmdDispatch(VkCommandBuffer commandBuffer, uint32_t x, uint32_t y, uint32_t z);
 
