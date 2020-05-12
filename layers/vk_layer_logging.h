@@ -72,6 +72,11 @@
     }
 #endif
 
+#ifndef STRINGIFY
+#define STRINGIFY(s) STRINGIFY_HELPER(s)
+#define STRINGIFY_HELPER(s) #s
+#endif
+
 static const char DECORATE_UNUSED *kVUIDUndefined = "VUID_Undefined";
 
 #undef DECORATE_UNUSED
@@ -646,9 +651,7 @@ static inline bool LogMsgLocked(const debug_report_data *debug_data, VkFlags msg
         // Construct and append the specification text and link to the appropriate version of the spec
         if (nullptr != spec_text) {
 #ifdef ANNOTATED_SPEC_LINK
-#define SSTRINGIFY(s) SSTRINGIFY_HELPER(s)
-#define SSTRINGIFY_HELPER(s) #s
-            static const char *kSpecLink = SSTRINGIFY(ANNOTATED_SPEC_LINK);
+            static const char *kSpecLink = STRINGIFY(ANNOTATED_SPEC_LINK);
 #else
             static const char *kSpecLink =
                 " (https://www.khronos.org/registry/vulkan/specs/_MAGIC_KHRONOS_SPEC_TYPE_/html/vkspec.html#_MAGIC_VUID_ID_)";
