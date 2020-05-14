@@ -583,6 +583,13 @@ class SyncValidator : public ValidationStateTracker, public SyncStageAccess {
     void PreCallRecordCmdDrawIndexed(VkCommandBuffer commandBuffer, uint32_t indexCount, uint32_t instanceCount,
                                      uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance);
 
+    bool DetectIndirectBufferHazard(const CMD_BUFFER_STATE &cmd, const VkDeviceSize struct_size, const VkBuffer buffer,
+                                    const VkDeviceSize offset, const uint32_t drawCount, const uint32_t stride,
+                                    const char *function) const;
+    void UpdateIndirectBufferAccessState(const CMD_BUFFER_STATE &cmd, CMD_TYPE command, const VkDeviceSize struct_size,
+                                         const VkBuffer buffer, const VkDeviceSize offset, const uint32_t drawCount,
+                                         uint32_t stride);
+
     bool PreCallValidateCmdDrawIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount,
                                         uint32_t stride) const;
     void PreCallRecordCmdDrawIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount,
@@ -593,6 +600,12 @@ class SyncValidator : public ValidationStateTracker, public SyncStageAccess {
     void PreCallRecordCmdDrawIndexedIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset,
                                              uint32_t drawCount, uint32_t stride);
 
+    bool DetectCountBufferHazard(const CMD_BUFFER_STATE &cmd, VkBuffer buffer, VkDeviceSize offset, const char *function) const;
+    void UpdateCountBufferAccessState(const CMD_BUFFER_STATE &cmd, CMD_TYPE command, VkBuffer buffer, VkDeviceSize offset);
+
+    bool ValidateCmdDrawIndirectCount(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkBuffer countBuffer,
+                                      VkDeviceSize countBufferOffset, uint32_t maxDrawCount, uint32_t stride,
+                                      const char *function) const;
     bool PreCallValidateCmdDrawIndirectCount(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset,
                                              VkBuffer countBuffer, VkDeviceSize countBufferOffset, uint32_t maxDrawCount,
                                              uint32_t stride) const;
@@ -612,6 +625,9 @@ class SyncValidator : public ValidationStateTracker, public SyncStageAccess {
                                               VkBuffer countBuffer, VkDeviceSize countBufferOffset, uint32_t maxDrawCount,
                                               uint32_t stride);
 
+    bool ValidateCmdDrawIndexedIndirectCount(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset,
+                                             VkBuffer countBuffer, VkDeviceSize countBufferOffset, uint32_t maxDrawCount,
+                                             uint32_t stride, const char *function) const;
     bool PreCallValidateCmdDrawIndexedIndirectCount(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset,
                                                     VkBuffer countBuffer, VkDeviceSize countBufferOffset, uint32_t maxDrawCount,
                                                     uint32_t stride) const;
@@ -668,4 +684,9 @@ class SyncValidator : public ValidationStateTracker, public SyncStageAccess {
                                         VkDeviceSize dataSize, const void *pData) const;
     void PreCallRecordCmdUpdateBuffer(VkCommandBuffer commandBuffer, VkBuffer dstBuffer, VkDeviceSize dstOffset,
                                       VkDeviceSize dataSize, const void *pData);
+
+    bool PreCallValidateCmdWriteBufferMarkerAMD(VkCommandBuffer commandBuffer, VkPipelineStageFlagBits pipelineStage,
+                                                VkBuffer dstBuffer, VkDeviceSize dstOffset, uint32_t marker);
+    void PreCallRecordCmdWriteBufferMarkerAMD(VkCommandBuffer commandBuffer, VkPipelineStageFlagBits pipelineStage, VkBuffer dstBuffer,
+                                          VkDeviceSize dstOffset, uint32_t marker);
 };
