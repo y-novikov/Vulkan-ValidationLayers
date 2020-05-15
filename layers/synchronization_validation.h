@@ -541,31 +541,48 @@ class SyncValidator : public ValidationStateTracker, public SyncStageAccess {
                                    VkImageLayout dstImageLayout, uint32_t regionCount, const VkImageBlit *pRegions,
                                    VkFilter filter);
 
-    bool DetectDescriptorSetHazard(const CMD_BUFFER_STATE &cmd, VkPipelineBindPoint pipelineBindPoint, const char *function) const;
-    void UpdateDescriptorSetAccessState(const CMD_BUFFER_STATE &cmd, CMD_TYPE command, VkPipelineBindPoint pipelineBindPoint);
+    bool DetectDescriptorSetHazard(const AccessContext &context, const CMD_BUFFER_STATE &cmd, VkPipelineBindPoint pipelineBindPoint,
+                                   const char *function) const;
+    void UpdateDescriptorSetAccessState(AccessContext &context, const ResourceUsageTag &tag, const CMD_BUFFER_STATE &cmd,
+                                        VkPipelineBindPoint pipelineBindPoint);
 
-    bool DetectVertexHazard(const CMD_BUFFER_STATE &cmd, uint32_t vertexCount, uint32_t firstVertex, const char *function) const;
-    void UpdateVertexAccessState(const CMD_BUFFER_STATE &cmd, CMD_TYPE command, uint32_t vertexCount, uint32_t firstVertex);
+    bool DetectVertexHazard(const AccessContext &context, const CMD_BUFFER_STATE &cmd, uint32_t vertexCount, uint32_t firstVertex,
+                            const char *function) const;
+    void UpdateVertexAccessState(AccessContext &context, const ResourceUsageTag &tag, const CMD_BUFFER_STATE &cmd,
+                                 uint32_t vertexCount, uint32_t firstVertex);
 
-    bool DetectVertexIndexHazard(const CMD_BUFFER_STATE &cmd, uint32_t indexCount, uint32_t firstIndex, const char *function) const;
-    void UpdateVertexIndexAccessState(const CMD_BUFFER_STATE &cmd, CMD_TYPE command, uint32_t indexCount, uint32_t firstIndex);
-
+    bool DetectVertexIndexHazard(const AccessContext &context, const CMD_BUFFER_STATE &cmd, uint32_t indexCount,
+                                 uint32_t firstIndex, const char *function) const;
+    void UpdateVertexIndexAccessState(AccessContext &context, const ResourceUsageTag &tag, const CMD_BUFFER_STATE &cmd,
+                                      uint32_t indexCount, uint32_t firstIndex);
 
     template <typename index_type>
     void GetSortedIndices(const BUFFER_STATE &index_buf_state, const VkDeviceSize &index_size, uint32_t indexCount,
                           uint32_t firstIndex, std::vector<index_type> &out_sorted_indices) const;
 
     template <typename index_type>
-    bool GetIndicesAndDetectVertexHazard(const CMD_BUFFER_STATE &cmd, const BUFFER_STATE &index_buf_state,
-                                         const VkDeviceSize &index_size, uint32_t indexCount, uint32_t firstIndex,
-                                         const char *function) const;
+    bool GetIndicesAndDetectVertexHazard(const AccessContext &context, const CMD_BUFFER_STATE &cmd,
+                                         const BUFFER_STATE &index_buf_state, const VkDeviceSize &index_size, uint32_t indexCount,
+                                         uint32_t firstIndex, const char *function) const;
 
     template <typename index_type>
-    void GetIndicesAndUpdateVertexAccessState(const CMD_BUFFER_STATE &cmd, CMD_TYPE command, const BUFFER_STATE &index_buf_state,
-                                              const VkDeviceSize &index_size, uint32_t indexCount, uint32_t firstIndex);
+    void GetIndicesAndUpdateVertexAccessState(AccessContext &context, const ResourceUsageTag &tag, const CMD_BUFFER_STATE &cmd,
+                                              const BUFFER_STATE &index_buf_state, const VkDeviceSize &index_size,
+                                              uint32_t indexCount, uint32_t firstIndex);
 
-    bool DetectSubpassAttachmentHazard(const CMD_BUFFER_STATE &cmd, const char *function) const;
-    void UpdateSubpassAttachmentAccessState(const CMD_BUFFER_STATE &cmd, CMD_TYPE command);
+    bool DetectSubpassAttachmentHazard(const AccessContext &context, const CMD_BUFFER_STATE &cmd, const char *function) const;
+    void UpdateSubpassAttachmentAccessState(AccessContext &context, const ResourceUsageTag &tag, const CMD_BUFFER_STATE &cmd);
+
+    bool DetectIndirectBufferHazard(const AccessContext &context, VkCommandBuffer commandBuffer, const VkDeviceSize struct_size,
+                                    const VkBuffer buffer, const VkDeviceSize offset, const uint32_t drawCount,
+                                    const uint32_t stride, const char *function) const;
+    void UpdateIndirectBufferAccessState(AccessContext &context, const ResourceUsageTag &tag, const VkDeviceSize struct_size,
+                                         const VkBuffer buffer, const VkDeviceSize offset, const uint32_t drawCount,
+                                         uint32_t stride);
+
+    bool DetectCountBufferHazard(const AccessContext &context, VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset,
+                                 const char *function) const;
+    void UpdateCountBufferAccessState(AccessContext &context, const ResourceUsageTag &tag, VkBuffer buffer, VkDeviceSize offset);
 
     bool PreCallValidateCmdDispatch(VkCommandBuffer commandBuffer, uint32_t x, uint32_t y, uint32_t z) const;
     void PreCallRecordCmdDispatch(VkCommandBuffer commandBuffer, uint32_t x, uint32_t y, uint32_t z);
@@ -583,13 +600,6 @@ class SyncValidator : public ValidationStateTracker, public SyncStageAccess {
     void PreCallRecordCmdDrawIndexed(VkCommandBuffer commandBuffer, uint32_t indexCount, uint32_t instanceCount,
                                      uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance);
 
-    bool DetectIndirectBufferHazard(const CMD_BUFFER_STATE &cmd, const VkDeviceSize struct_size, const VkBuffer buffer,
-                                    const VkDeviceSize offset, const uint32_t drawCount, const uint32_t stride,
-                                    const char *function) const;
-    void UpdateIndirectBufferAccessState(const CMD_BUFFER_STATE &cmd, CMD_TYPE command, const VkDeviceSize struct_size,
-                                         const VkBuffer buffer, const VkDeviceSize offset, const uint32_t drawCount,
-                                         uint32_t stride);
-
     bool PreCallValidateCmdDrawIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount,
                                         uint32_t stride) const;
     void PreCallRecordCmdDrawIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount,
@@ -599,9 +609,6 @@ class SyncValidator : public ValidationStateTracker, public SyncStageAccess {
                                                uint32_t drawCount, uint32_t stride) const;
     void PreCallRecordCmdDrawIndexedIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset,
                                              uint32_t drawCount, uint32_t stride);
-
-    bool DetectCountBufferHazard(const CMD_BUFFER_STATE &cmd, VkBuffer buffer, VkDeviceSize offset, const char *function) const;
-    void UpdateCountBufferAccessState(const CMD_BUFFER_STATE &cmd, CMD_TYPE command, VkBuffer buffer, VkDeviceSize offset);
 
     bool ValidateCmdDrawIndirectCount(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkBuffer countBuffer,
                                       VkDeviceSize countBufferOffset, uint32_t maxDrawCount, uint32_t stride,
@@ -687,6 +694,6 @@ class SyncValidator : public ValidationStateTracker, public SyncStageAccess {
 
     bool PreCallValidateCmdWriteBufferMarkerAMD(VkCommandBuffer commandBuffer, VkPipelineStageFlagBits pipelineStage,
                                                 VkBuffer dstBuffer, VkDeviceSize dstOffset, uint32_t marker);
-    void PreCallRecordCmdWriteBufferMarkerAMD(VkCommandBuffer commandBuffer, VkPipelineStageFlagBits pipelineStage, VkBuffer dstBuffer,
-                                          VkDeviceSize dstOffset, uint32_t marker);
+    void PreCallRecordCmdWriteBufferMarkerAMD(VkCommandBuffer commandBuffer, VkPipelineStageFlagBits pipelineStage,
+                                              VkBuffer dstBuffer, VkDeviceSize dstOffset, uint32_t marker);
 };
