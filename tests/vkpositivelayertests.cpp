@@ -7439,7 +7439,7 @@ TEST_F(VkPositiveLayerTest, MultiplaneImageTests) {
     ivci.subresourceRange.layerCount = 1;
     ivci.subresourceRange.baseMipLevel = 0;
     ivci.subresourceRange.levelCount = 1;
-    ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_PLANE_0_BIT_KHR;
     vk::CreateImageView(m_device->device(), &ivci, nullptr, &view);
 
     OneOffDescriptorSet descriptor_set(m_device,
