@@ -92,7 +92,14 @@ struct SyncBarrier {
     SyncBarrier &operator=(const SyncBarrier &) = default;
     SyncBarrier(VkQueueFlags gueue_flags, const VkSubpassDependency2 &sub_pass_barrier);
 };
-using SyncBarrierStack = std::vector<const SyncBarrier *>;
+
+// To represent ordering guarantees such as rasterization and store
+struct SyncOrderingBarrier {
+    VkPipelineStageFlags exec_scope;
+    SyncStageAccessFlags access_scope;
+    SyncOrderingBarrier() = default;
+    SyncOrderingBarrier &operator=(const SyncOrderingBarrier &) = default;
+};
 
 class ResourceAccessState : public SyncStageAccess {
   protected:
@@ -113,6 +120,7 @@ class ResourceAccessState : public SyncStageAccess {
 
   public:
     HazardResult DetectHazard(SyncStageAccessIndex usage_index) const;
+    HazardResult DetectHazard(SyncStageAccessIndex usage_index, const SyncOrderingBarrier &ordering) const;
 
     HazardResult DetectBarrierHazard(SyncStageAccessIndex usage_index, VkPipelineStageFlags source_exec_scope,
                                      SyncStageAccessFlags source_access_scope) const;
@@ -194,9 +202,15 @@ class AccessContext {
     HazardResult DetectHazard(const IMAGE_STATE &image, SyncStageAccessIndex current_usage,
                               const VkImageSubresourceLayers &subresource, const VkOffset3D &offset,
                               const VkExtent3D &extent) const;
+    template <typename Detector>
+    HazardResult DetectHazard(Detector &detector, const IMAGE_STATE &image, const VkImageSubresourceRange &subresource_range,
+                              const VkOffset3D &offset, const VkExtent3D &extent, DetectOptions options) const;
     HazardResult DetectHazard(const IMAGE_STATE &image, SyncStageAccessIndex current_usage,
                               const VkImageSubresourceRange &subresource_range, const VkOffset3D &offset,
                               const VkExtent3D &extent) const;
+    HazardResult DetectHazard(const IMAGE_STATE &image, SyncStageAccessIndex current_usage,
+                              const VkImageSubresourceRange &subresource_range, const SyncOrderingBarrier &ordering,
+                              const VkOffset3D &offset, const VkExtent3D &extent) const;
     HazardResult DetectImageBarrierHazard(const IMAGE_STATE &image, VkPipelineStageFlags src_exec_scope,
                                           SyncStageAccessFlags src_access_scope, const VkImageSubresourceRange &subresource_range,
                                           DetectOptions options) const;
