@@ -6357,6 +6357,9 @@ TEST_F(VkPositiveLayerTest, ClearColorImageWithValidRange) {
         m_errorMonitor->VerifyNotFound();
     }
 
+    image.ImageMemoryBarrier(m_commandBuffer, VK_IMAGE_ASPECT_COLOR_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
+                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
     // Try good case with VK_REMAINING
     {
         m_errorMonitor->ExpectSuccess();
@@ -6397,6 +6400,9 @@ TEST_F(VkPositiveLayerTest, ClearDepthStencilWithValidRange) {
         vk::CmdClearDepthStencilImage(cb_handle, image.handle(), image.Layout(), &clear_value, 1, &range);
         m_errorMonitor->VerifyNotFound();
     }
+
+    image.ImageMemoryBarrier(m_commandBuffer, ds_aspect, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
+                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     // Try good case with VK_REMAINING
     {
