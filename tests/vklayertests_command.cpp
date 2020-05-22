@@ -1913,12 +1913,15 @@ TEST_F(VkLayerTest, ImageBufferCopyTests) {
                                  buffer_256k.handle(), 1, &ds_region);
         m_errorMonitor->VerifyFound();
 
-        m_errorMonitor->SetDesiredFailureMsg(
-            kErrorBit,
-            "VUID-vkCmdCopyImageToBuffer-pRegions-00183");  // Extract 3b depth per texel, pack (loose) into 256k buffer
+        auto buffer_memory_barrier =
+            buffer_256k.buffer_memory_barrier(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, 0, 262144);
+        m_commandBuffer->PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1,
+                                         &buffer_memory_barrier, 0, nullptr);
+
+        m_errorMonitor->ExpectSuccess(); // depth pixel size is 3 bytes, so the buffer size is enough.
         vk::CmdCopyImageToBuffer(m_commandBuffer->handle(), ds_image_3D_1S.handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                                  buffer_256k.handle(), 1, &ds_region);
-        m_errorMonitor->VerifyFound();
+        m_errorMonitor->VerifyNotFound();
 
         m_errorMonitor->SetDesiredFailureMsg(
             kErrorBit,
