@@ -7425,14 +7425,17 @@ TEST_F(VkPositiveLayerTest, MultiplaneImageTests) {
         vk::FreeMemory(device(), p2_mem, NULL);
         vk::DestroyImage(device(), image, NULL);
     }
-
+    m_errorMonitor->ExpectSuccess();
     // Test that changing the layout of ASPECT_COLOR also changes the layout of the individual planes
     VkBufferObj buffer;
     VkMemoryPropertyFlags reqs = 0;
     buffer.init_as_src(*m_device, (VkDeviceSize)128 * 128 * 3, reqs);
     VkImageObj mpimage(m_device);
-    mpimage.Init(256, 256, 1, VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM_KHR, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                 VK_IMAGE_TILING_OPTIMAL, 0);
+    auto image_ci =
+        mpimage.ImageCreateInfo2D(256, 256, 1, 1, VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM_KHR,
+                                  VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_TILING_OPTIMAL, 0);
+    image_ci.flags = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
+    mpimage.InitNoLayout(image_ci);
     VkBufferImageCopy copy_region = {};
     copy_region.bufferRowLength = 128;
     copy_region.bufferImageHeight = 128;
@@ -7444,13 +7447,18 @@ TEST_F(VkPositiveLayerTest, MultiplaneImageTests) {
 
     vk::ResetCommandBuffer(m_commandBuffer->handle(), 0);
     m_commandBuffer->begin();
-    mpimage.ImageMemoryBarrier(m_commandBuffer, VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    mpimage.ImageMemoryBarrier(m_commandBuffer,
+                               VK_IMAGE_ASPECT_PLANE_0_BIT | VK_IMAGE_ASPECT_PLANE_1_BIT | VK_IMAGE_ASPECT_PLANE_2_BIT, 0,
+                               VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     vk::CmdCopyBufferToImage(m_commandBuffer->handle(), buffer.handle(), mpimage.handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
                              &copy_region);
     m_commandBuffer->end();
+    mpimage.Layout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
     m_commandBuffer->QueueCommandBuffer(false);
     m_errorMonitor->VerifyNotFound();
 
+    m_errorMonitor->ExpectSuccess();
     // Test to verify that views of multiplanar images have layouts tracked correctly
     // by changing the image's layout then using a view of that image
     VkImageView view;
@@ -7462,7 +7470,7 @@ TEST_F(VkPositiveLayerTest, MultiplaneImageTests) {
     ivci.subresourceRange.layerCount = 1;
     ivci.subresourceRange.baseMipLevel = 0;
     ivci.subresourceRange.levelCount = 1;
-    ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_PLANE_0_BIT | VK_IMAGE_ASPECT_PLANE_1_BIT | VK_IMAGE_ASPECT_PLANE_2_BIT;
     vk::CreateImageView(m_device->device(), &ivci, nullptr, &view);
 
     OneOffDescriptorSet descriptor_set(m_device,
@@ -7488,25 +7496,13 @@ TEST_F(VkPositiveLayerTest, MultiplaneImageTests) {
     pipe.AddShader(&fs);
     pipe.AddDefaultColorAttachment();
     pipe.CreateVKPipeline(pipeline_layout.handle(), renderPass());
+    m_errorMonitor->VerifyNotFound();
 
     m_errorMonitor->ExpectSuccess();
     m_commandBuffer->begin();
-    VkImageMemoryBarrier img_barrier = {};
-    img_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    img_barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    img_barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    img_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    img_barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    img_barrier.image = mpimage.handle();
-    img_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    img_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    img_barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    img_barrier.subresourceRange.baseArrayLayer = 0;
-    img_barrier.subresourceRange.baseMipLevel = 0;
-    img_barrier.subresourceRange.layerCount = 1;
-    img_barrier.subresourceRange.levelCount = 1;
-    vk::CmdPipelineBarrier(m_commandBuffer->handle(), VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                           VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 0, nullptr, 1, &img_barrier);
+    mpimage.ImageMemoryBarrier(
+        m_commandBuffer, VK_IMAGE_ASPECT_PLANE_0_BIT | VK_IMAGE_ASPECT_PLANE_1_BIT | VK_IMAGE_ASPECT_PLANE_2_BIT,
+        VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     m_commandBuffer->BeginRenderPass(m_renderPassBeginInfo);
     vk::CmdBindPipeline(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.handle());
     vk::CmdBindDescriptorSets(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout.handle(), 0, 1,

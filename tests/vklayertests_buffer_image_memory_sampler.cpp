@@ -11630,6 +11630,130 @@ TEST_F(VkLayerTest, SyncRenderPassBeginTransitionHazard) {
     m_errorMonitor->VerifyNotFound();
 }
 
+TEST_F(VkLayerTest, SyncCmdDrawV12_colorattachment_issue) {
+    m_errorMonitor->ExpectSuccess();
+    SetTargetApiVersion(VK_API_VERSION_1_2);
+    ASSERT_NO_FATAL_FAILURE(Init());
+    ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
+    if (DeviceValidationVersion() < VK_API_VERSION_1_2) {
+        printf("%s Test requires unsupported v1.2.\n", kSkipPrefix);
+    }
+    const float vbo_data[3] = {1.f, 0.f, 1.f};
+    VkVertexInputAttributeDescription VertexInputAttributeDescription = {0, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(vbo_data)};
+    VkVertexInputBindingDescription VertexInputBindingDescription = {0, sizeof(vbo_data), VK_VERTEX_INPUT_RATE_VERTEX};
+    VkBufferObj vbo, vbo2;
+    VkMemoryPropertyFlags mem_prop = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    VkBufferUsageFlags buffer_usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    vbo.init(*m_device, vbo.create_info(sizeof(vbo_data), buffer_usage, nullptr), mem_prop);
+    vbo2.init(*m_device, vbo2.create_info(sizeof(vbo_data), buffer_usage, nullptr), mem_prop);
+
+    CreatePipelineHelper g_pipe(*this);
+    g_pipe.InitInfo();
+    g_pipe.InitState();
+    g_pipe.vi_ci_.pVertexBindingDescriptions = &VertexInputBindingDescription;
+    g_pipe.vi_ci_.vertexBindingDescriptionCount = 1;
+    g_pipe.vi_ci_.pVertexAttributeDescriptions = &VertexInputAttributeDescription;
+    g_pipe.vi_ci_.vertexAttributeDescriptionCount = 1;
+    g_pipe.CreateGraphicsPipeline();
+
+    m_commandBuffer->begin();
+    VkBufferCopy buffer_region = {0, 0, sizeof(vbo_data)};
+
+    // CopyBuffer : srcBuffer: vbo. It's also a vertex buffer.
+    vk::CmdCopyBuffer(m_commandBuffer->handle(), vbo.handle(), vbo2.handle(), 1, &buffer_region);
+
+    m_commandBuffer->BeginRenderPass(m_renderPassBeginInfo);
+    VkDeviceSize offset = 0;
+    vk::CmdBindVertexBuffers(m_commandBuffer->handle(), 0, 1, &vbo.handle(), &offset);
+    vk::CmdBindPipeline(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, g_pipe.pipeline_);
+
+    // Here happens subpass's colorattachment SYNC-HAZARD-WRITE_AFTER_WRITE issue.
+    vk::CmdDraw(m_commandBuffer->handle(), 1, 0, 0, 0);
+
+    m_commandBuffer->EndRenderPass();
+    m_commandBuffer->end();
+    m_errorMonitor->VerifyNotFound();
+}
+
+TEST_F(VkLayerTest, SyncCmdDrawV12_withoutCopyBuffer) {
+    // If it doesn't CopyBuffer, it won't happen subpass's colorattachment issue.
+    m_errorMonitor->ExpectSuccess();
+    SetTargetApiVersion(VK_API_VERSION_1_2);
+    ASSERT_NO_FATAL_FAILURE(Init());
+    ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
+    if (DeviceValidationVersion() < VK_API_VERSION_1_2) {
+        printf("%s Test requires unsupported v1.2.\n", kSkipPrefix);
+    }
+    const float vbo_data[3] = {1.f, 0.f, 1.f};
+    VkVertexInputAttributeDescription VertexInputAttributeDescription = {0, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(vbo_data)};
+    VkVertexInputBindingDescription VertexInputBindingDescription = {0, sizeof(vbo_data), VK_VERTEX_INPUT_RATE_VERTEX};
+    VkBufferObj vbo, vbo2;
+    VkMemoryPropertyFlags mem_prop = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    VkBufferUsageFlags buffer_usage =
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    vbo.init(*m_device, vbo.create_info(sizeof(vbo_data), buffer_usage, nullptr), mem_prop);
+    vbo2.init(*m_device, vbo2.create_info(sizeof(vbo_data), buffer_usage, nullptr), mem_prop);
+
+    CreatePipelineHelper g_pipe(*this);
+    g_pipe.InitInfo();
+    g_pipe.InitState();
+    g_pipe.vi_ci_.pVertexBindingDescriptions = &VertexInputBindingDescription;
+    g_pipe.vi_ci_.vertexBindingDescriptionCount = 1;
+    g_pipe.vi_ci_.pVertexAttributeDescriptions = &VertexInputAttributeDescription;
+    g_pipe.vi_ci_.vertexAttributeDescriptionCount = 1;
+    g_pipe.CreateGraphicsPipeline();
+
+    m_commandBuffer->begin();
+
+    m_commandBuffer->BeginRenderPass(m_renderPassBeginInfo);
+    VkDeviceSize offset = 0;
+    vk::CmdBindVertexBuffers(m_commandBuffer->handle(), 0, 1, &vbo.handle(), &offset);
+    vk::CmdBindPipeline(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, g_pipe.pipeline_);
+    vk::CmdDraw(m_commandBuffer->handle(), 1, 0, 0, 0);
+    m_commandBuffer->EndRenderPass();
+    m_commandBuffer->end();
+    m_errorMonitor->VerifyNotFound();
+}
+
+TEST_F(VkLayerTest, SyncCmdDrawV0) {
+    // If it doesn't set Version 1.2, it won't happen subpass's colorattachment issue, even CopyBuffer.
+    m_errorMonitor->ExpectSuccess();
+    ASSERT_NO_FATAL_FAILURE(Init());
+    ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
+
+    const float vbo_data[3] = {1.f, 0.f, 1.f};
+    VkVertexInputAttributeDescription VertexInputAttributeDescription = {0, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(vbo_data)};
+    VkVertexInputBindingDescription VertexInputBindingDescription = {0, sizeof(vbo_data), VK_VERTEX_INPUT_RATE_VERTEX};
+    VkBufferObj vbo, vbo2;
+    VkMemoryPropertyFlags mem_prop = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    VkBufferUsageFlags buffer_usage =
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    vbo.init(*m_device, vbo.create_info(sizeof(vbo_data), buffer_usage, nullptr), mem_prop);
+    vbo2.init(*m_device, vbo2.create_info(sizeof(vbo_data), buffer_usage, nullptr), mem_prop);
+
+    CreatePipelineHelper g_pipe(*this);
+    g_pipe.InitInfo();
+    g_pipe.InitState();
+    g_pipe.vi_ci_.pVertexBindingDescriptions = &VertexInputBindingDescription;
+    g_pipe.vi_ci_.vertexBindingDescriptionCount = 1;
+    g_pipe.vi_ci_.pVertexAttributeDescriptions = &VertexInputAttributeDescription;
+    g_pipe.vi_ci_.vertexAttributeDescriptionCount = 1;
+    g_pipe.CreateGraphicsPipeline();
+
+    m_commandBuffer->begin();
+    VkBufferCopy buffer_region = {0, 0, sizeof(vbo_data)};
+    vk::CmdCopyBuffer(m_commandBuffer->handle(), vbo.handle(), vbo2.handle(), 1, &buffer_region);
+
+    m_commandBuffer->BeginRenderPass(m_renderPassBeginInfo);
+    VkDeviceSize offset = 0;
+    vk::CmdBindVertexBuffers(m_commandBuffer->handle(), 0, 1, &vbo.handle(), &offset);
+    vk::CmdBindPipeline(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, g_pipe.pipeline_);
+    vk::CmdDraw(m_commandBuffer->handle(), 1, 0, 0, 0);
+    m_commandBuffer->EndRenderPass();
+    m_commandBuffer->end();
+    m_errorMonitor->VerifyNotFound();
+}
+
 TEST_F(VkLayerTest, SyncCmdDispatchDrawHazards) {
     // TODO: Add code to enable sync validation
     SetTargetApiVersion(VK_API_VERSION_1_2);
